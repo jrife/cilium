@@ -8,13 +8,11 @@ import (
 	"fmt"
 	"math"
 	"net/netip"
-	"sort"
 	"strconv"
 	"sync"
 	"unsafe"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -189,208 +187,12 @@ var localNodeIdentity = struct {
 	identity: ReservedIdentityRemoteNode,
 }
 
-type wellKnownIdentities map[NumericIdentity]wellKnownIdentity
-
-// wellKnownIdentitity is an identity for well-known security labels for which
-// a well-known numeric identity is reserved to avoid requiring a cluster wide
-// setup. Examples of this include kube-dns and the etcd-operator.
-type wellKnownIdentity struct {
-	identity   *Identity
-	labelArray labels.LabelArray
-}
-
-func (w wellKnownIdentities) add(i NumericIdentity, lbls []string) {
-	labelMap := labels.NewLabelsFromModel(lbls)
-	identity := NewIdentity(i, labelMap)
-	w[i] = wellKnownIdentity{
-		identity:   NewIdentity(i, labelMap),
-		labelArray: labelMap.LabelArray(),
-	}
-
-	cacheMU.Lock()
-	reservedIdentityCache[i] = identity
-	cacheMU.Unlock()
-}
-
-func (w wellKnownIdentities) LookupByLabels(lbls labels.Labels) *Identity {
-	for _, i := range w {
-		if lbls.Equals(i.identity.Labels) {
-			return i.identity
-		}
-	}
-
-	return nil
-}
-
-func (w wellKnownIdentities) ForEach(yield func(*Identity)) {
-	for _, id := range w {
-		yield(id.identity)
-	}
-}
-
-func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *Identity {
-	wki, ok := w[identity]
-	if !ok {
-		return nil
-	}
-	return wki.identity
-}
-
 type Configuration interface {
 	CiliumNamespaceName() string
 }
 
 func k8sLabel(key string, value string) string {
 	return "k8s:" + key + "=" + value
-}
-
-// InitWellKnownIdentities establishes all well-known identities. Returns the
-// number of well-known identities initialized.
-func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
-	// etcd-operator labels
-	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-sa
-	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
-	//   k8s:io.cilium/app=etcd-operator
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	etcdOperatorLabels := []string{
-		"k8s:io.cilium/app=etcd-operator",
-		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
-		k8sLabel(api.PolicyLabelServiceAccount, "cilium-etcd-sa"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedETCDOperator, etcdOperatorLabels)
-	WellKnown.add(ReservedETCDOperator2, append(etcdOperatorLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
-
-	// cilium-etcd labels
-	//   k8s:app=etcd
-	//   k8s:io.cilium/app=etcd-operator
-	//   k8s:etcd_cluster=cilium-etcd
-	//   k8s:io.cilium.k8s.policy.serviceaccount=default
-	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	// these 2 labels are ignored by cilium-agent as they can change over time
-	//   container:annotation.etcd.version=3.3.9
-	//   k8s:etcd_node=cilium-etcd-6snk6vsjcm
-	ciliumEtcdLabels := []string{
-		"k8s:app=etcd",
-		"k8s:etcd_cluster=cilium-etcd",
-		"k8s:io.cilium/app=etcd-operator",
-		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
-		k8sLabel(api.PolicyLabelServiceAccount, "default"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedCiliumKVStore, ciliumEtcdLabels)
-	WellKnown.add(ReservedCiliumKVStore2, append(ciliumEtcdLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
-
-	// kube-dns labels
-	//   k8s:io.cilium.k8s.policy.serviceaccount=kube-dns
-	//   k8s:io.kubernetes.pod.namespace=kube-system
-	//   k8s:k8s-app=kube-dns
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	kubeDNSLabels := []string{
-		"k8s:k8s-app=kube-dns",
-		k8sLabel(api.PodNamespaceLabel, "kube-system"),
-		k8sLabel(api.PolicyLabelServiceAccount, "kube-dns"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedKubeDNS, kubeDNSLabels)
-	WellKnown.add(ReservedKubeDNS2, append(kubeDNSLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, "kube-system")))
-
-	// kube-dns EKS labels
-	//   k8s:io.cilium.k8s.policy.serviceaccount=kube-dns
-	//   k8s:io.kubernetes.pod.namespace=kube-system
-	//   k8s:k8s-app=kube-dns
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	//   k8s:eks.amazonaws.com/component=kube-dns
-	eksKubeDNSLabels := []string{
-		"k8s:k8s-app=kube-dns",
-		"k8s:eks.amazonaws.com/component=kube-dns",
-		k8sLabel(api.PodNamespaceLabel, "kube-system"),
-		k8sLabel(api.PolicyLabelServiceAccount, "kube-dns"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedEKSKubeDNS, eksKubeDNSLabels)
-	WellKnown.add(ReservedEKSKubeDNS2, append(eksKubeDNSLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, "kube-system")))
-
-	// CoreDNS EKS labels
-	//   k8s:io.cilium.k8s.policy.serviceaccount=coredns
-	//   k8s:io.kubernetes.pod.namespace=kube-system
-	//   k8s:k8s-app=kube-dns
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	//   k8s:eks.amazonaws.com/component=coredns
-	eksCoreDNSLabels := []string{
-		"k8s:k8s-app=kube-dns",
-		"k8s:eks.amazonaws.com/component=coredns",
-		k8sLabel(api.PodNamespaceLabel, "kube-system"),
-		k8sLabel(api.PolicyLabelServiceAccount, "coredns"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedEKSCoreDNS, eksCoreDNSLabels)
-	WellKnown.add(ReservedEKSCoreDNS2, append(eksCoreDNSLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, "kube-system")))
-
-	// CoreDNS labels
-	//   k8s:io.cilium.k8s.policy.serviceaccount=coredns
-	//   k8s:io.kubernetes.pod.namespace=kube-system
-	//   k8s:k8s-app=kube-dns
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	coreDNSLabels := []string{
-		"k8s:k8s-app=kube-dns",
-		k8sLabel(api.PodNamespaceLabel, "kube-system"),
-		k8sLabel(api.PolicyLabelServiceAccount, "coredns"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedCoreDNS, coreDNSLabels)
-	WellKnown.add(ReservedCoreDNS2, append(coreDNSLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, "kube-system")))
-
-	// CiliumOperator labels
-	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-operator
-	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
-	//   k8s:name=cilium-operator
-	//   k8s:io.cilium/app=operator
-	//   k8s:app.kubernetes.io/part-of=cilium
-	//   k8s:app.kubernetes.io/name=cilium-operator
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	ciliumOperatorLabels := []string{
-		"k8s:name=cilium-operator",
-		"k8s:io.cilium/app=operator",
-		"k8s:app.kubernetes.io/part-of=cilium",
-		"k8s:app.kubernetes.io/name=cilium-operator",
-		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
-		k8sLabel(api.PolicyLabelServiceAccount, "cilium-operator"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedCiliumOperator, ciliumOperatorLabels)
-	WellKnown.add(ReservedCiliumOperator2, append(ciliumOperatorLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
-
-	// cilium-etcd-operator labels
-	//   k8s:io.cilium.k8s.policy.cluster=default
-	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-operator
-	//   k8s:io.cilium/app=etcd-operator
-	//   k8s:app.kubernetes.io/name: cilium-etcd-operator
-	//   k8s:app.kubernetes.io/part-of: cilium
-	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
-	//   k8s:name=cilium-etcd-operator
-	ciliumEtcdOperatorLabels := []string{
-		"k8s:name=cilium-etcd-operator",
-		"k8s:io.cilium/app=etcd-operator",
-		"k8s:app.kubernetes.io/name: cilium-etcd-operator",
-		"k8s:app.kubernetes.io/part-of: cilium",
-		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
-		k8sLabel(api.PolicyLabelServiceAccount, "cilium-etcd-operator"),
-		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
-	}
-	WellKnown.add(ReservedCiliumEtcdOperator, ciliumEtcdOperatorLabels)
-	WellKnown.add(ReservedCiliumEtcdOperator2, append(ciliumEtcdOperatorLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
-
-	return len(WellKnown)
 }
 
 // GetClusterIDShift returns the number of bits to shift a cluster ID in a numeric
@@ -427,51 +229,95 @@ func GetMaximumAllocationIdentity(clusterID uint32) NumericIdentity {
 	return NumericIdentity((1<<GetClusterIDShift())*(clusterID+1) - 1)
 }
 
-var (
-	reservedIdentities = map[string]NumericIdentity{
-		labels.IDNameHost:             ReservedIdentityHost,
-		labels.IDNameWorld:            ReservedIdentityWorld,
-		labels.IDNameWorldIPv4:        ReservedIdentityWorldIPv4,
-		labels.IDNameWorldIPv6:        ReservedIdentityWorldIPv6,
-		labels.IDNameUnmanaged:        ReservedIdentityUnmanaged,
-		labels.IDNameHealth:           ReservedIdentityHealth,
-		labels.IDNameInit:             ReservedIdentityInit,
-		labels.IDNameRemoteNode:       ReservedIdentityRemoteNode,
-		labels.IDNameKubeAPIServer:    ReservedIdentityKubeAPIServer,
-		labels.IDNameIngress:          ReservedIdentityIngress,
-		labels.IDNameEncryptedOverlay: ReservedEncryptedOverlay,
-	}
-	reservedIdentityNames = map[NumericIdentity]string{
-		IdentityUnknown:               "unknown",
-		ReservedIdentityHost:          labels.IDNameHost,
-		ReservedIdentityWorld:         labels.IDNameWorld,
-		ReservedIdentityWorldIPv4:     labels.IDNameWorldIPv4,
-		ReservedIdentityWorldIPv6:     labels.IDNameWorldIPv6,
-		ReservedIdentityUnmanaged:     labels.IDNameUnmanaged,
-		ReservedIdentityHealth:        labels.IDNameHealth,
-		ReservedIdentityInit:          labels.IDNameInit,
-		ReservedIdentityRemoteNode:    labels.IDNameRemoteNode,
-		ReservedIdentityKubeAPIServer: labels.IDNameKubeAPIServer,
-		ReservedIdentityIngress:       labels.IDNameIngress,
-	}
-	reservedIdentityLabels = map[NumericIdentity]labels.Labels{
-		ReservedIdentityHost:       labels.LabelHost,
-		ReservedIdentityWorld:      labels.LabelWorld,
-		ReservedIdentityWorldIPv4:  labels.LabelWorldIPv4,
-		ReservedIdentityWorldIPv6:  labels.LabelWorldIPv6,
-		ReservedIdentityUnmanaged:  labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameUnmanaged}),
-		ReservedIdentityHealth:     labels.LabelHealth,
-		ReservedIdentityInit:       labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameInit}),
-		ReservedIdentityRemoteNode: labels.LabelRemoteNode,
-		ReservedIdentityKubeAPIServer: labels.Map2Labels(map[string]string{
-			labels.LabelKubeAPIServer.String(): "",
-			labels.LabelRemoteNode.String():    "",
-		}, ""),
-		ReservedIdentityIngress: labels.LabelIngress,
+type ReservedIdentitySet struct {
+	toID     map[string]NumericIdentity
+	toName   map[NumericIdentity]string
+	toLabels map[NumericIdentity]labels.Labels
+}
+
+func NewReservedIdentitySet() *ReservedIdentitySet {
+	s := &ReservedIdentitySet{
+		toID:     map[string]NumericIdentity{},
+		toName:   map[NumericIdentity]string{},
+		toLabels: map[NumericIdentity]labels.Labels{},
 	}
 
-	// WellKnown identities stores global state of all well-known identities.
-	WellKnown = wellKnownIdentities{}
+	s.add(IdentityUnknown, labels.IDNameUnknown, nil)
+	s.add(ReservedIdentityHost, labels.IDNameHost, labels.LabelHost)
+	s.add(ReservedIdentityWorld, labels.IDNameWorld, labels.LabelWorld)
+	s.add(ReservedIdentityWorldIPv4, labels.IDNameWorldIPv4, labels.LabelWorldIPv4)
+	s.add(ReservedIdentityWorldIPv6, labels.IDNameWorldIPv6, labels.LabelWorldIPv6)
+	s.add(ReservedIdentityUnmanaged, labels.IDNameUnmanaged, labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameUnmanaged}))
+	s.add(ReservedIdentityHealth, labels.IDNameHealth, labels.LabelHealth)
+	s.add(ReservedIdentityInit, labels.IDNameInit, labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameInit}))
+	s.add(ReservedIdentityRemoteNode, labels.IDNameRemoteNode, labels.LabelRemoteNode)
+	s.add(ReservedIdentityKubeAPIServer, labels.IDNameKubeAPIServer, labels.Map2Labels(map[string]string{
+		labels.LabelKubeAPIServer.String(): "",
+		labels.LabelRemoteNode.String():    "",
+	}, ""))
+	s.add(ReservedIdentityIngress, labels.IDNameIngress, labels.LabelIngress)
+	s.add(ReservedEncryptedOverlay, labels.IDNameEncryptedOverlay, nil)
+
+	return s
+}
+
+func (ri *ReservedIdentitySet) ForEach(fn func(NumericIdentity, string, labels.Labels)) {
+	for name, ni := range ri.toID {
+		fn(ni, name, ri.toLabels[ni])
+	}
+}
+
+func (ri *ReservedIdentitySet) add(nid NumericIdentity, name string, lbls labels.Labels) {
+	ri.toID[name] = nid
+	ri.toName[nid] = name
+
+	if lbls != nil {
+		ri.toLabels[nid] = lbls
+	}
+}
+
+func (ri *ReservedIdentitySet) AddUserReserved(ni NumericIdentity, name string) error {
+	if !IsUserReservedIdentity(ni) {
+		return ErrNotUserIdentity
+	}
+
+	ri.add(ni, name, labels.Labels{name: labels.NewLabel(name, "", labels.LabelSourceReserved)})
+
+	return nil
+}
+
+func (ri *ReservedIdentitySet) ID(name string) NumericIdentity {
+	if ni, exists := ri.toID[name]; exists {
+		return ni
+	}
+
+	return IdentityUnknown
+}
+
+func (ri *ReservedIdentitySet) Name(ni NumericIdentity) string {
+	if name, exists := ri.toName[ni]; exists {
+		return name
+	}
+
+	return "unknown"
+}
+
+func (ri *ReservedIdentitySet) has(ni NumericIdentity) bool {
+	_, exists := ri.toName[ni]
+
+	return exists
+}
+
+func (ri *ReservedIdentitySet) size() int {
+	return len(ri.toID)
+}
+
+func ReservedIdentities() *ReservedIdentitySet {
+	return reservedIdentities
+}
+
+var (
+	reservedIdentities = NewReservedIdentitySet()
 
 	// ErrNotUserIdentity is an error returned for an identity that is not user
 	// reserved.
@@ -483,37 +329,6 @@ var (
 func IsUserReservedIdentity(id NumericIdentity) bool {
 	return id.Uint32() >= UserReservedNumericIdentity.Uint32() &&
 		id.Uint32() < MinimalNumericIdentity.Uint32()
-}
-
-// AddUserDefinedNumericIdentity adds the given numeric identity and respective
-// label to the list of reservedIdentities. If the numeric identity is not
-// between UserReservedNumericIdentity and MinimalNumericIdentity it will return
-// ErrNotUserIdentity.
-// Is not safe for concurrent use.
-func AddUserDefinedNumericIdentity(identity NumericIdentity, label string) error {
-	if !IsUserReservedIdentity(identity) {
-		return ErrNotUserIdentity
-	}
-	reservedIdentities[label] = identity
-	reservedIdentityNames[identity] = label
-	return nil
-}
-
-// DelReservedNumericIdentity deletes the given Numeric Identity from the list
-// of reservedIdentities. If the numeric identity is not between
-// UserReservedNumericIdentity and MinimalNumericIdentity it will return
-// ErrNotUserIdentity.
-// Is not safe for concurrent use.
-func DelReservedNumericIdentity(identity NumericIdentity) error {
-	if !IsUserReservedIdentity(identity) {
-		return ErrNotUserIdentity
-	}
-	label, ok := reservedIdentityNames[identity]
-	if ok {
-		delete(reservedIdentities, label)
-		delete(reservedIdentityNames, identity)
-	}
-	return nil
 }
 
 // NumericIdentity is the numeric representation of a security identity.
@@ -559,8 +374,8 @@ func (id NumericIdentity) StringID() string {
 }
 
 func (id NumericIdentity) String() string {
-	if v, exists := reservedIdentityNames[id]; exists {
-		return v
+	if reservedIdentities.has(id) {
+		return reservedIdentities.Name(id)
 	}
 
 	return id.StringID()
@@ -588,39 +403,14 @@ func SetLocalNodeID(nodeid uint32) {
 	localNodeIdentity.identity = NumericIdentity(nodeid)
 }
 
-func GetReservedID(name string) NumericIdentity {
-	if v, ok := reservedIdentities[name]; ok {
-		return v
-	}
-	return IdentityUnknown
-}
-
 // IsReservedIdentity returns whether id is one of the special reserved identities.
 func (id NumericIdentity) IsReservedIdentity() bool {
-	_, isReservedIdentity := reservedIdentityNames[id]
-	return isReservedIdentity
+	return reservedIdentities.has(id)
 }
 
 // ClusterID returns the cluster ID associated with the identity
 func (id NumericIdentity) ClusterID() uint32 {
 	return (uint32(id) >> uint32(GetClusterIDShift())) & cmtypes.ClusterIDMax
-}
-
-// GetAllReservedIdentities returns a list of all reserved numeric identities
-// in ascending order.
-// NOTE: While this func is unused from the cilium repository, is it imported
-// and called by the hubble cli.
-func GetAllReservedIdentities() []NumericIdentity {
-	identities := make([]NumericIdentity, 0, len(reservedIdentities))
-	for _, id := range reservedIdentities {
-		identities = append(identities, id)
-	}
-	// Because our reservedIdentities source is a go map, and go map order is
-	// randomized, we need to sort the resulting slice before returning it.
-	sort.Slice(identities, func(i, j int) bool {
-		return identities[i].Uint32() < identities[j].Uint32()
-	})
-	return identities
 }
 
 // GetWorldIdentityFromIP gets the correct world identity based
@@ -634,15 +424,6 @@ func GetWorldIdentityFromIP(addr netip.Addr) NumericIdentity {
 		return ReservedIdentityWorldIPv4
 	}
 	return ReservedIdentityWorld
-}
-
-// iterateReservedIdentityLabels iterates over all reservedIdentityLabels and
-// executes the given function for each key, value pair in
-// reservedIdentityLabels.
-func iterateReservedIdentityLabels(f func(_ NumericIdentity, _ labels.Labels)) {
-	for ni, lbls := range reservedIdentityLabels {
-		f(ni, lbls)
-	}
 }
 
 // HasLocalScope returns true if the identity is in the Local (CIDR) scope

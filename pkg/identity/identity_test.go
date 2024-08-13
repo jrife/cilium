@@ -11,41 +11,42 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 func TestReservedID(t *testing.T) {
-	i := GetReservedID("host")
+	i := ReservedIdentities().ID("host")
 	require.Equal(t, NumericIdentity(1), i)
 	require.Equal(t, "host", i.String())
 
-	i = GetReservedID("world")
+	i = ReservedIdentities().ID("world")
 	require.Equal(t, NumericIdentity(2), i)
 	require.Equal(t, "world", i.String())
 
 	// This is an obsoleted identity, we verify that it returns 0
-	i = GetReservedID("cluster")
+	i = ReservedIdentities().ID("cluster")
 	require.Equal(t, NumericIdentity(0), i)
 	require.Equal(t, "unknown", i.String())
 
-	i = GetReservedID("health")
+	i = ReservedIdentities().ID("health")
 	require.Equal(t, NumericIdentity(4), i)
 	require.Equal(t, "health", i.String())
 
-	i = GetReservedID("init")
+	i = ReservedIdentities().ID("init")
 	require.Equal(t, NumericIdentity(5), i)
 	require.Equal(t, "init", i.String())
 
-	i = GetReservedID("unmanaged")
+	i = ReservedIdentities().ID("unmanaged")
 	require.Equal(t, NumericIdentity(3), i)
 	require.Equal(t, "unmanaged", i.String())
 
-	i = GetReservedID("kube-apiserver")
+	i = ReservedIdentities().ID("kube-apiserver")
 	require.Equal(t, NumericIdentity(7), i)
 	require.Equal(t, "kube-apiserver", i.String())
 
-	require.Equal(t, IdentityUnknown, GetReservedID("unknown"))
+	require.Equal(t, IdentityUnknown, ReservedIdentities().ID("unknown"))
 	unknown := NumericIdentity(700)
 	require.Equal(t, "700", unknown.String())
 }
@@ -117,10 +118,12 @@ func TestScopeForLabels(t *testing.T) {
 			scope: IdentityScopeRemoteNode,
 		},
 	}
+	fakeConfig := &option.DaemonConfig{}
+	reservedIdentityCache := NewReservedIdentityCache(fakeConfig, types.ClusterInfo{}, reservedIdentities)
 
 	for i, test := range tests {
 		// ScopeForLabels requires this to return nil
-		id := LookupReservedIdentityByLabels(test.lbls)
+		id := reservedIdentityCache.LookupByLabels(test.lbls)
 		if id != nil {
 			continue
 		}
@@ -313,18 +316,21 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 			want:           nil,
 		},
 	}
+	fakeConfig := &option.DaemonConfig{}
+	reservedIdentityCache := NewReservedIdentityCache(fakeConfig, types.ClusterInfo{}, reservedIdentities)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldVal := option.Config.PolicyCIDRMatchMode
+			oldVal := fakeConfig.PolicyCIDRMatchMode
 			defer func() {
-				option.Config.PolicyCIDRMatchMode = oldVal
+				fakeConfig.PolicyCIDRMatchMode = oldVal
 			}()
 			if tt.nodeCIDRPolicy {
-				option.Config.PolicyCIDRMatchMode = []string{"nodes"}
+				fakeConfig.PolicyCIDRMatchMode = []string{"nodes"}
 			} else {
-				option.Config.PolicyCIDRMatchMode = []string{}
+				fakeConfig.PolicyCIDRMatchMode = []string{}
 			}
-			id := LookupReservedIdentityByLabels(tt.args)
+			id := reservedIdentityCache.LookupByLabels(tt.args)
 			if tt.want == nil {
 				assert.Nil(t, id)
 				return

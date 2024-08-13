@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -40,7 +41,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	fooEgressDenyRule1Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule1", labels.LabelSourceAny)
 	fooEgressDenyRule2Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule2", labels.LabelSourceAny)
 	combinedLabel := labels.NewLabel(k8sConst.PolicyLabelName, "combined", labels.LabelSourceAny)
-	initIdentity := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
+	reservedIdentityCache := identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities())
+	initIdentity := reservedIdentityCache.Lookup(identity.ReservedIdentityInit)
 	td.addIdentity(fooIdentity)
 
 	fooIngressDenyRule1 := api.Rule{

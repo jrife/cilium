@@ -131,6 +131,8 @@ type IPCache struct {
 	// injectionStarted is a sync.Once so we can lazily start the prefix injection controller,
 	// but only once
 	injectionStarted sync.Once
+
+	reservedIdentityCache identity.ReservedIdentityCache
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security

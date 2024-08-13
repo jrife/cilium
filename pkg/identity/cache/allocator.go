@@ -86,6 +86,8 @@ type CachingIdentityAllocator struct {
 	// checkpointPath is the file where local allocator state should be checkpoointed.
 	// The default is /run/cilium/state/local_allocator_state.json, changed only for testing.
 	checkpointPath string
+
+	reservedIdentityCache identity.ReservedIdentityCache
 }
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -307,7 +309,7 @@ const eventsQueueSize = 1024
 
 // NewCachingIdentityAllocator creates a new instance of an
 // CachingIdentityAllocator.
-func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
+func NewCachingIdentityAllocator(owner IdentityAllocatorOwner, reservedIdentityCache identity.ReservedIdentityCache) *CachingIdentityAllocator {
 	watcher := identityWatcher{
 		owner: owner,
 	}
@@ -318,6 +320,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 		identitiesPath:                     IdentitiesPath,
 		watcher:                            watcher,
 		events:                             make(allocator.AllocatorEventChan, eventsQueueSize),
+		reservedIdentityCache:              reservedIdentityCache,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
@@ -385,7 +388,7 @@ var ErrNonLocalIdentity = fmt.Errorf("labels would result in global identity")
 func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error) {
 
 	// If this is a reserved, pre-allocated identity, just return that and be done
-	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
+	if reservedIdentity := m.reservedIdentityCache.LookupByLabels(lbls); reservedIdentity != nil {
 		if option.Config.Debug {
 			log.WithFields(logrus.Fields{
 				logfields.Identity:       reservedIdentity.ID,
@@ -445,9 +448,9 @@ func (m *CachingIdentityAllocator) AllocateLocalIdentity(lbls labels.Labels, not
 
 // needsGlobalIdentity returns true if these labels require
 // allocating a global identity
-func needsGlobalIdentity(lbls labels.Labels) bool {
+func needsGlobalIdentity(reserved identity.ReservedIdentityCache, lbls labels.Labels) bool {
 	// If lbls corresponds to a reserved identity, no global allocation required
-	if identity.LookupReservedIdentityByLabels(lbls) != nil {
+	if reserved.LookupByLabels(lbls) != nil {
 		return false
 	}
 
@@ -463,7 +466,7 @@ func needsGlobalIdentity(lbls labels.Labels) bool {
 // in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
 // previous numeric identity exists.
 func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error) {
-	if !needsGlobalIdentity(lbls) {
+	if !needsGlobalIdentity(m.reservedIdentityCache, lbls) {
 		return m.AllocateLocalIdentity(lbls, notifyOwner, oldNID)
 	}
 
@@ -631,7 +634,7 @@ func (m *CachingIdentityAllocator) RestoreLocalIdentities() (map[identity.Numeri
 	for _, oldID := range ids {
 		// Ensure we do not restore any global identities or identities that somehow are
 		// changing scope. There's no point, as the numeric identity will be different.
-		if scope := identity.ScopeForLabels(oldID.Labels); scope != oldID.ID.Scope() || needsGlobalIdentity(oldID.Labels) {
+		if scope := identity.ScopeForLabels(oldID.Labels); scope != oldID.ID.Scope() || needsGlobalIdentity(m.reservedIdentityCache, oldID.Labels) {
 			// Should not happen, except when the scope for labels changes
 			// such as disabling policy-cidr-match-mode=nodes
 			log.WithFields(logrus.Fields{

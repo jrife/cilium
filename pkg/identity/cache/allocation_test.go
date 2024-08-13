@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
@@ -52,10 +53,11 @@ func testAllocateIdentityReserved(t *testing.T) {
 		labels.IDNameHost: labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 	}
 
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	reservedIdentityCache := identity.NewReservedIdentityCache(&option.DaemonConfig{}, types.ClusterInfo{}, identity.ReservedIdentities())
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), reservedIdentityCache)
 	<-mgr.InitIdentityAllocator(nil)
 
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.Equal(t, true, reservedIdentityCache.LookupByLabels(lbls) != nil)
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityHost, i.ID)
@@ -64,13 +66,13 @@ func testAllocateIdentityReserved(t *testing.T) {
 	lbls = labels.Labels{
 		labels.IDNameWorld: labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved),
 	}
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.Equal(t, true, reservedIdentityCache.LookupByLabels(lbls) != nil)
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityWorld, i.ID)
 	require.False(t, isNew)
 
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(labels.LabelHealth))
+	require.Equal(t, true, reservedIdentityCache.LookupByLabels(labels.LabelHealth) != nil)
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), labels.LabelHealth, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityHealth, i.ID)
@@ -79,7 +81,7 @@ func testAllocateIdentityReserved(t *testing.T) {
 	lbls = labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.Equal(t, true, reservedIdentityCache.LookupByLabels(lbls) != nil)
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityInit, i.ID)
@@ -88,7 +90,7 @@ func testAllocateIdentityReserved(t *testing.T) {
 	lbls = labels.Labels{
 		labels.IDNameUnmanaged: labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved),
 	}
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.Equal(t, true, reservedIdentityCache.LookupByLabels(lbls) != nil)
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityUnmanaged, i.ID)
@@ -232,9 +234,11 @@ func TestGetIdentityCache(t *testing.T) {
 }
 
 func testGetIdentityCache(t *testing.T) {
-	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
+	fc := *fakeConfig
+	fc.EnableWellKnownIdentities = true
+
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), identity.NewReservedIdentityCache(&fc, cmtypes.ClusterInfo{Name: "default", ID: 5}, identity.ReservedIdentities()))
 	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -260,9 +264,10 @@ func testAllocator(t *testing.T) {
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
 
 	owner := newDummyOwner()
-	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
+	fc := *fakeConfig
+	fc.EnableWellKnownIdentities = true
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, identity.NewReservedIdentityCache(&fc, cmtypes.ClusterInfo{Name: "default", ID: 5}, identity.ReservedIdentities()))
 	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -355,9 +360,10 @@ func testLocalAllocation(t *testing.T) {
 	lbls1 := labels.NewLabelsFromSortedList("cidr:192.0.2.3/32")
 
 	owner := newDummyOwner()
-	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
+	fc := *fakeConfig
+	fc.EnableWellKnownIdentities = true
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, identity.NewReservedIdentityCache(&fc, cmtypes.ClusterInfo{Name: "default", ID: 5}, identity.ReservedIdentities()))
 	<-mgr.InitIdentityAllocator(nil)
 	defer mgr.Close()
 	defer mgr.IdentityAllocator.DeleteAllKeys()
@@ -429,7 +435,7 @@ func TestAllocatorReset(t *testing.T) {
 func testAllocatorReset(t *testing.T) {
 	labels := labels.NewLabelsFromSortedList("id=bar;user=anna")
 	owner := newDummyOwner()
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, identity.NewReservedIdentityCache(fakeConfig, cmtypes.ClusterInfo{}, identity.ReservedIdentities()))
 	testAlloc := func() {
 		id1a, _, err := mgr.AllocateIdentity(context.Background(), labels, false, identity.InvalidIdentity)
 		require.NotNil(t, id1a)
@@ -449,13 +455,14 @@ func testAllocatorReset(t *testing.T) {
 }
 
 func TestAllocateLocally(t *testing.T) {
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	reservedIdentityCache := identity.NewReservedIdentityCache(fakeConfig, cmtypes.ClusterInfo{}, identity.ReservedIdentities())
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), reservedIdentityCache)
 
 	cidrLbls := labels.NewLabelsFromSortedList("cidr:1.2.3.4/32")
 	podLbls := labels.NewLabelsFromSortedList("k8s:foo=bar")
 
-	assert.False(t, needsGlobalIdentity(cidrLbls))
-	assert.True(t, needsGlobalIdentity(podLbls))
+	assert.False(t, needsGlobalIdentity(reservedIdentityCache, cidrLbls))
+	assert.True(t, needsGlobalIdentity(reservedIdentityCache, podLbls))
 
 	id, allocated, err := mgr.AllocateLocalIdentity(cidrLbls, false, identity.IdentityScopeLocal+50)
 	assert.Nil(t, err)
@@ -470,7 +477,7 @@ func TestAllocateLocally(t *testing.T) {
 
 func TestCheckpointRestore(t *testing.T) {
 	owner := newDummyOwner()
-	mgr := NewCachingIdentityAllocator(owner)
+	mgr := NewCachingIdentityAllocator(owner, identity.NewReservedIdentityCache(fakeConfig, cmtypes.ClusterInfo{}, identity.ReservedIdentities()))
 	defer mgr.Close()
 	dir := t.TempDir()
 	mgr.checkpointPath = filepath.Join(dir, CheckpointFile)
@@ -502,7 +509,7 @@ func TestCheckpointRestore(t *testing.T) {
 	err := mgr.checkpoint(context.TODO())
 	require.NoError(t, err)
 
-	newMgr := NewCachingIdentityAllocator(owner)
+	newMgr := NewCachingIdentityAllocator(owner, identity.NewReservedIdentityCache(fakeConfig, cmtypes.ClusterInfo{}, identity.ReservedIdentities()))
 	defer newMgr.Close()
 	newMgr.checkpointPath = mgr.checkpointPath
 

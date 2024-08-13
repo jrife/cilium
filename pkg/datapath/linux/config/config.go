@@ -75,6 +75,7 @@ type HeaderfileWriter struct {
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 	sysctl             sysctl.Sysctl
+	reservedIdentities identity.ReservedIdentitySet
 }
 
 func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
@@ -168,24 +169,24 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		fw.WriteString(defineIPv6("HOST_IP", hostIP))
 	}
 
-	cDefinesMap["UNKNOWN_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameUnknown))
-	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
-	cDefinesMap["WORLD_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameWorld))
+	cDefinesMap["UNKNOWN_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameUnknown))
+	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameHost))
+	cDefinesMap["WORLD_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameWorld))
 	if option.Config.IsDualStack() {
-		cDefinesMap["WORLD_IPV4_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameWorldIPv4))
-		cDefinesMap["WORLD_IPV6_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameWorldIPv6))
+		cDefinesMap["WORLD_IPV4_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameWorldIPv4))
+		cDefinesMap["WORLD_IPV6_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameWorldIPv6))
 	} else {
-		worldID := identity.GetReservedID(labels.IDNameWorld)
+		worldID := h.reservedIdentities.ID(labels.IDNameWorld)
 		cDefinesMap["WORLD_IPV4_ID"] = fmt.Sprintf("%d", worldID)
 		cDefinesMap["WORLD_IPV6_ID"] = fmt.Sprintf("%d", worldID)
 	}
-	cDefinesMap["HEALTH_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHealth))
-	cDefinesMap["UNMANAGED_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameUnmanaged))
-	cDefinesMap["INIT_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameInit))
+	cDefinesMap["HEALTH_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameHealth))
+	cDefinesMap["UNMANAGED_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameUnmanaged))
+	cDefinesMap["INIT_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameInit))
 	cDefinesMap["LOCAL_NODE_ID"] = fmt.Sprintf("%d", identity.GetLocalNodeID())
-	cDefinesMap["REMOTE_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameRemoteNode))
-	cDefinesMap["KUBE_APISERVER_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameKubeAPIServer))
-	cDefinesMap["ENCRYPTED_OVERLAY_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameEncryptedOverlay))
+	cDefinesMap["REMOTE_NODE_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameRemoteNode))
+	cDefinesMap["KUBE_APISERVER_NODE_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameKubeAPIServer))
+	cDefinesMap["ENCRYPTED_OVERLAY_ID"] = fmt.Sprintf("%d", h.reservedIdentities.ID(labels.IDNameEncryptedOverlay))
 	cDefinesMap["CILIUM_LB_SERVICE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.ServiceMapMaxEntries)
 	cDefinesMap["CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.ServiceBackEndMapMaxEntries)
 	cDefinesMap["CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.RevNatMapMaxEntries)

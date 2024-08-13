@@ -17,6 +17,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -534,7 +535,7 @@ func TestIdentity(t *testing.T) {
 	assert.Nil(t, f.blacklist)
 
 	// reserved identities
-	for _, id := range identity.GetAllReservedIdentities() {
+	identity.ReservedIdentities().ForEach(func(id identity.NumericIdentity, _ string, _ labels.Labels) {
 		t.Run(id.String(), func(t *testing.T) {
 			f := newFlowFilter()
 			cmd := newFlowsCmdWithFilter(viper.New(), f)
@@ -551,7 +552,7 @@ func TestIdentity(t *testing.T) {
 			}
 			assert.Nil(t, f.blacklist)
 		})
-	}
+	})
 }
 
 func TestFromIdentity(t *testing.T) {
@@ -571,7 +572,7 @@ func TestFromIdentity(t *testing.T) {
 	assert.Nil(t, f.blacklist)
 
 	// reserved identities
-	for _, id := range identity.GetAllReservedIdentities() {
+	identity.ReservedIdentities().ForEach(func(id identity.NumericIdentity, _ string, _ labels.Labels) {
 		t.Run(id.String(), func(t *testing.T) {
 			f := newFlowFilter()
 			cmd := newFlowsCmdWithFilter(viper.New(), f)
@@ -587,7 +588,7 @@ func TestFromIdentity(t *testing.T) {
 			}
 			assert.Nil(t, f.blacklist)
 		})
-	}
+	})
 }
 
 func TestToIdentity(t *testing.T) {
@@ -607,7 +608,7 @@ func TestToIdentity(t *testing.T) {
 	assert.Nil(t, f.blacklist)
 
 	// reserved identities
-	for _, id := range identity.GetAllReservedIdentities() {
+	identity.ReservedIdentities().ForEach(func(id identity.NumericIdentity, _ string, _ labels.Labels) {
 		t.Run(id.String(), func(t *testing.T) {
 			f := newFlowFilter()
 			cmd := newFlowsCmdWithFilter(viper.New(), f)
@@ -623,7 +624,7 @@ func TestToIdentity(t *testing.T) {
 			}
 			assert.Nil(t, f.blacklist)
 		})
-	}
+	})
 }
 
 func TestFromToIdentityCombined(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	fake "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -130,7 +131,8 @@ func TestReadEPsFromDirNames(t *testing.T) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(context.TODO(), s, s, s, tmpDir, epsNames)
+	reservedIdentityCache := identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities())
+	eps := ReadEPsFromDirNames(context.TODO(), s, s, s, reservedIdentityCache, tmpDir, epsNames)
 	require.Equal(t, len(epsWanted), len(eps))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -197,7 +199,8 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult := ReadEPsFromDirNames(context.TODO(), s, s, s, tmpDir, epNames)
+	reservedIdentityCache := identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities())
+	epResult := ReadEPsFromDirNames(context.TODO(), s, s, s, reservedIdentityCache, tmpDir, epNames)
 	require.Equal(t, 1, len(epResult))
 
 	restoredEP := epResult[ep.ID]
@@ -254,9 +257,10 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 		epsNames = append(epsNames, ep.DirectoryPath())
 	}
 	b.StartTimer()
+	reservedIdentityCache := identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities())
 
 	for i := 0; i < b.N; i++ {
-		eps := ReadEPsFromDirNames(context.TODO(), s, s, s, tmpDir, epsNames)
+		eps := ReadEPsFromDirNames(context.TODO(), s, s, s, reservedIdentityCache, tmpDir, epsNames)
 		require.Equal(b, len(epsWanted), len(eps))
 	}
 }

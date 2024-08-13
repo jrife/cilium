@@ -33,6 +33,8 @@ type MockIdentityAllocator struct {
 	withheldIdentities map[identity.NumericIdentity]struct{}
 
 	labelsToReject map[string]struct{}
+
+	reservedIdentityCache identity.ReservedIdentityCache
 }
 
 // NewMockIdentityAllocator returns a new mock identity allocator to be used
@@ -83,7 +85,7 @@ func (f *MockIdentityAllocator) Unreject(lbls labels.Labels) {
 // AllocateIdentity allocates a fake identity. It is meant to generally mock
 // the canonical identity allocator logic.
 func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.Labels, _ bool, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
-	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
+	if reservedIdentity := f.reservedIdentityCache.LookupByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity, false, nil
 	}
 
@@ -166,7 +168,7 @@ func (f *MockIdentityAllocator) UnwithholdLocalIdentities(nids []identity.Numeri
 
 // LookupIdentity looks up the labels in the mock identity store.
 func (f *MockIdentityAllocator) LookupIdentity(ctx context.Context, lbls labels.Labels) *identity.Identity {
-	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
+	if reservedIdentity := f.reservedIdentityCache.LookupByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity
 	}
 	return f.idToIdentity[f.labelsToIdentity[lbls.String()]]
@@ -175,7 +177,7 @@ func (f *MockIdentityAllocator) LookupIdentity(ctx context.Context, lbls labels.
 // LookupIdentityByID returns the identity corresponding to the id if the
 // identity is a reserved identity. Otherwise, returns nil.
 func (f *MockIdentityAllocator) LookupIdentityByID(ctx context.Context, id identity.NumericIdentity) *identity.Identity {
-	if identity := identity.LookupReservedIdentity(id); identity != nil {
+	if identity := f.reservedIdentityCache.Lookup(id); identity != nil {
 		return identity
 	}
 	return f.idToIdentity[int(id)]

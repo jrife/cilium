@@ -68,6 +68,8 @@ type K8sCiliumEndpointsWatcher struct {
 	ipcache         ipcacheManager
 
 	resources agentK8s.Resources
+
+	reservedIdentityCache identity.ReservedIdentityCache
 }
 
 // initCiliumEndpointOrSlices initializes the ciliumEndpoints or ciliumEndpointSlice
@@ -216,7 +218,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	}
 
 	if option.Config.EnableHighScaleIPcache &&
-		!identity.IsWellKnownIdentity(id) {
+		!k.reservedIdentityCache.IsWellKnown(id) {
 		// Well-known identities are kept in the high-scale ipcache because we
 		// need to be able to connect to the DNS pods to resolve FQDN policies.
 		scopedLog := log.WithFields(logrus.Fields{

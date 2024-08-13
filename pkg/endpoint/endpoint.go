@@ -422,6 +422,8 @@ type Endpoint struct {
 
 	// NetNsCookie is the network namespace cookie of the Endpoint.
 	NetNsCookie uint64
+
+	reservedIdentityGetter identityGetter
 }
 
 func (e *Endpoint) GetRealizedRedirects() (redirects map[string]uint16) {
@@ -469,6 +471,12 @@ type namedPortsGetter interface {
 
 type policyRepoGetter interface {
 	GetPolicyRepository() *policy.Repository
+}
+
+type identityGetter interface {
+	Lookup(identity.NumericIdentity) *identity.Identity
+	LookupByLabels(labels.Labels) *identity.Identity
+	IsWellKnown(identity.NumericIdentity) bool
 }
 
 // EndpointSyncControllerName returns the controller name to synchronize
@@ -904,7 +912,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 //
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, epJSON []byte) (*Endpoint, error) {
+func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, reservedIdentityGetter identityGetter, epJSON []byte) (*Endpoint, error) {
 	ep := Endpoint{
 		owner:            owner,
 		namedPortsGetter: namedPortsGetter,
@@ -952,7 +960,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 
 	// Make sure the endpoint has an identity, using the 'init' identity if none.
 	if ep.SecurityIdentity == nil {
-		ep.SecurityIdentity = identity.LookupReservedIdentity(identity.ReservedIdentityInit)
+		ep.SecurityIdentity = reservedIdentityGetter.Lookup(identity.ReservedIdentityInit)
 	}
 	ep.SecurityIdentity.Sanitize()
 
@@ -2114,7 +2122,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, blocking bool) (rege
 	// store, do it first synchronously right now. This can reduce the number
 	// of regenerations for the endpoint during its initialization.
 	regenTriggered = false
-	if blocking || identity.IdentityAllocationIsLocal(newLabels) {
+	if blocking || e.reservedIdentityGetter.LookupByLabels(newLabels) != nil {
 		scopedLog.Info("Resolving identity labels (blocking)")
 		regenTriggered, err = e.identityLabelsChanged(ctx)
 		if err != nil {

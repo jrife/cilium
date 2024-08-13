@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -62,7 +63,8 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	fooEgressRule1Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule1", labels.LabelSourceAny)
 	fooEgressRule2Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule2", labels.LabelSourceAny)
 	combinedLabel := labels.NewLabel(k8sConst.PolicyLabelName, "combined", labels.LabelSourceAny)
-	initIdentity := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
+	reservedIdentityCache := identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities())
+	initIdentity := reservedIdentityCache.Lookup(identity.ReservedIdentityInit)
 
 	fooIngressRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
@@ -209,8 +210,9 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 	c := identity.IdentityMap{
 		fooIdentity.ID: fooIdentity.LabelArray,
 	}
-	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
-		c[ni] = id.Labels.LabelArray()
+	reservedIdentityCache := identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities())
+	reservedIdentityCache.ForEach(func(id *identity.Identity) {
+		c[id.ID] = id.Labels.LabelArray()
 	})
 	td.sc.UpdateIdentities(c, nil, wg)
 

@@ -46,7 +46,7 @@ var (
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
 func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter,
-	namedPortsGetter namedPortsGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+	namedPortsGetter namedPortsGetter, reservedIdentityGetter identityGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
 
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
@@ -78,7 +78,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGe
 			continue
 		}
 
-		ep, err := parseEndpoint(ctx, owner, policyGetter, namedPortsGetter, state)
+		ep, err := parseEndpoint(ctx, owner, policyGetter, namedPortsGetter, reservedIdentityGetter, state)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
@@ -261,7 +261,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	// kvstore before doing any policy calculation for
 	// endpoints that don't have a fixed identity or are
 	// not well known.
-	if !id.IsFixed() && !id.IsWellKnown() {
+	if !id.IsFixed() && !e.reservedIdentityGetter.IsWellKnown(id.ID) {
 		// Getting the initial global identities while we are restoring should
 		// block the restoring of the endpoint.
 		// If the endpoint is removed, this controller will cancel the allocator

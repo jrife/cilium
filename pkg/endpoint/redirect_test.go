@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -51,7 +52,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	// Setup dependencies for endpoint.
 	kvstore.SetupDummy(tb, "etcd")
 
-	s.mgr = cache.NewCachingIdentityAllocator(s.do)
+	reservedIdentityCache := identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities())
+	s.mgr = cache.NewCachingIdentityAllocator(s.do, reservedIdentityCache)
 	<-s.mgr.InitIdentityAllocator(nil)
 
 	identityCache := identity.IdentityMap{

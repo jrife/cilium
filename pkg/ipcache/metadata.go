@@ -725,7 +725,7 @@ func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.La
 
 	log.WithField(logfields.Labels, newLabels).Debug("Merged labels for reserved:host identity")
 
-	return identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, newLabels)
+	return ipc.reservedIdentityCache.Put(identity.ReservedIdentityHost, newLabels)
 }
 
 // RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD

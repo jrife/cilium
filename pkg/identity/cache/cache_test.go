@@ -28,25 +28,26 @@ var (
 
 func TestLookupReservedIdentity(t *testing.T) {
 	testutils.IntegrationTest(t)
+	fc := *fakeConfig
+	fc.EnableWellKnownIdentities = true
 
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	// The nils are only used by k8s CRD identities. We default to kvstore.
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), identity.NewReservedIdentityCache(&fc, cmtypes.ClusterInfo{Name: "default", ID: 5}, identity.ReservedIdentities()))
 	<-mgr.InitIdentityAllocator(nil)
 
-	hostID := identity.GetReservedID("host")
+	hostID := identity.ReservedIdentities().ID("host")
 	require.NotNil(t, mgr.LookupIdentityByID(context.TODO(), hostID))
 
 	id := mgr.LookupIdentity(context.TODO(), labels.NewLabelsFromModel([]string{"reserved:host"}))
 	require.NotNil(t, id)
 	require.Equal(t, hostID, id.ID)
 
-	worldID := identity.GetReservedID("world")
+	worldID := identity.ReservedIdentities().ID("world")
 	require.NotNil(t, mgr.LookupIdentityByID(context.TODO(), worldID))
 
 	id = mgr.LookupIdentity(context.TODO(), labels.NewLabelsFromModel([]string{"reserved:world"}))
 	require.NotNil(t, id)
 	require.Equal(t, worldID, id.ID)
-
-	identity.InitWellKnownIdentities(fakeConfig, cmtypes.ClusterInfo{Name: "default", ID: 5})
 
 	id = mgr.LookupIdentity(context.TODO(), kvstoreLabels)
 	require.NotNil(t, id)
@@ -58,8 +59,6 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 
 	ni, err := identity.ParseNumericIdentity("129")
 	require.Nil(t, err)
-	identity.AddUserDefinedNumericIdentity(ni, "kvstore")
-	identity.AddReservedIdentity(ni, "kvstore")
 
 	type args struct {
 		lbls labels.Labels
@@ -142,8 +141,14 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 		},
 	}
 
+	fc := *fakeConfig
+	fc.EnableWellKnownIdentities = true
+	reservedIdentities := identity.NewReservedIdentitySet()
+	reservedIdentities.AddUserReserved(129, "kvstore")
+	reservedIdentityCache := identity.NewReservedIdentityCache(&fc, cmtypes.ClusterInfo{Name: "default", ID: 5}, reservedIdentities)
+
 	for _, tt := range tests {
-		got := identity.LookupReservedIdentityByLabels(tt.args.lbls)
+		got := reservedIdentityCache.LookupByLabels(tt.args.lbls)
 		switch {
 		case got == nil && tt.want == nil:
 		case got == nil && tt.want != nil ||

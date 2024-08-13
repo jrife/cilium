@@ -61,8 +61,8 @@ func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
 		})
 	}
 
-	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
-		cache[ni] = id.Labels.LabelArray()
+	m.reservedIdentityCache.ForEach(func(id *identity.Identity) {
+		cache[id.ID] = id.Labels.LabelArray()
 	})
 
 	for _, identity := range m.localIdentities.GetIdentities() {
@@ -88,7 +88,7 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 
 		})
 	}
-	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
+	m.reservedIdentityCache.ForEach(func(id *identity.Identity) {
 		identities = append(identities, identitymodel.CreateModel(id))
 	})
 
@@ -202,7 +202,7 @@ func (m *CachingIdentityAllocator) isGlobalIdentityAllocatorInitialized() bool {
 // remote kvstores and finally fall back to the main kvstore.
 // May return nil for lookups if the allocator has not yet been synchronized.
 func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labels.Labels) *identity.Identity {
-	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
+	if reservedIdentity := m.reservedIdentityCache.LookupByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity
 	}
 
@@ -244,7 +244,7 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id id
 		return unknownIdentity
 	}
 
-	if identity := identity.LookupReservedIdentity(id); identity != nil {
+	if identity := m.reservedIdentityCache.Lookup(id); identity != nil {
 		return identity
 	}
 

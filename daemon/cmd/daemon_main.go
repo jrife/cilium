@@ -1356,10 +1356,6 @@ func initEnv(vp *viper.Viper) {
 		log.Warningf("%s is enabled. Network policy will not be enforced.", option.PolicyAuditMode)
 	}
 
-	if err := identity.AddUserDefinedNumericIdentitySet(option.Config.FixedIdentityMapping); err != nil {
-		log.WithError(err).Fatal("Invalid fixed identities provided")
-	}
-
 	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {
 		log.Fatal("Either IPv4 or IPv6 addressing must be enabled")
 	}
@@ -1690,26 +1686,27 @@ type daemonParams struct {
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
-	CTNATMapGC          gc.Enabler
-	StoreFactory        store.Factory
-	EndpointRegenerator *endpoint.Regenerator
-	ClusterInfo         cmtypes.ClusterInfo
-	BigTCPConfig        *bigtcp.Configuration
-	TunnelConfig        tunnel.Config
-	BandwidthManager    datapath.BandwidthManager
-	IPsecKeyCustodian   datapath.IPsecKeyCustodian
-	MTU                 mtu.MTU
-	Sysctl              sysctl.Sysctl
-	SyncHostIPs         *syncHostIPs
-	NodeDiscovery       *nodediscovery.NodeDiscovery
-	CompilationLock     datapath.CompilationLock
-	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
-	CGroupManager       cgroup.CGroupManager
-	ServiceResolver     *dial.ServiceResolver
-	Recorder            *recorder.Recorder
-	IPAM                *ipam.IPAM
-	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	IdentityManager     *identitymanager.IdentityManager
+	CTNATMapGC            gc.Enabler
+	StoreFactory          store.Factory
+	EndpointRegenerator   *endpoint.Regenerator
+	ClusterInfo           cmtypes.ClusterInfo
+	BigTCPConfig          *bigtcp.Configuration
+	TunnelConfig          tunnel.Config
+	BandwidthManager      datapath.BandwidthManager
+	IPsecKeyCustodian     datapath.IPsecKeyCustodian
+	MTU                   mtu.MTU
+	Sysctl                sysctl.Sysctl
+	SyncHostIPs           *syncHostIPs
+	NodeDiscovery         *nodediscovery.NodeDiscovery
+	CompilationLock       datapath.CompilationLock
+	MetalLBBgpSpeaker     speaker.MetalLBBgpSpeaker
+	CGroupManager         cgroup.CGroupManager
+	ServiceResolver       *dial.ServiceResolver
+	Recorder              *recorder.Recorder
+	IPAM                  *ipam.IPAM
+	CRDSyncPromise        promise.Promise[k8sSynced.CRDSync]
+	IdentityManager       *identitymanager.IdentityManager
+	ReservedIdentityCache identity.ReservedIdentityCache
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {

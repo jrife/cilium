@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -123,27 +122,15 @@ func (id *Identity) String() string {
 // IsReserved returns whether the identity represents a reserved identity
 // (true), or not (false).
 func (id *Identity) IsReserved() bool {
-	return LookupReservedIdentity(id.ID) != nil
+	return reservedIdentities.has(id.ID)
 }
 
 // IsFixed returns whether the identity represents a fixed identity
 // (true), or not (false).
 func (id *Identity) IsFixed() bool {
-	return LookupReservedIdentity(id.ID) != nil &&
+	return reservedIdentities.has(id.ID) &&
 		(id.ID == ReservedIdentityHost || id.ID == ReservedIdentityHealth ||
 			IsUserReservedIdentity(id.ID))
-}
-
-// IsWellKnown returns whether the identity represents a well known identity
-// (true), or not (false).
-func (id *Identity) IsWellKnown() bool {
-	return WellKnown.lookupByNumericIdentity(id.ID) != nil
-}
-
-// IsWellKnownIdentity returns true if the identity represents a well-known
-// identity, false otherwise.
-func IsWellKnownIdentity(id NumericIdentity) bool {
-	return WellKnown.lookupByNumericIdentity(id) != nil
 }
 
 // NewIdentityFromLabelArray creates a new identity
@@ -217,108 +204,4 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 	}
 
 	return scope
-}
-
-// AddUserDefinedNumericIdentitySet adds all key-value pairs from the given map
-// to the map of user defined numeric identities and reserved identities.
-// The key-value pairs should map a numeric identity to a valid label.
-// Is not safe for concurrent use.
-func AddUserDefinedNumericIdentitySet(m map[string]string) error {
-	// Validate first
-	for k := range m {
-		ni, err := ParseNumericIdentity(k)
-		if err != nil {
-			return err
-		}
-		if !IsUserReservedIdentity(ni) {
-			return ErrNotUserIdentity
-		}
-	}
-	for k, lbl := range m {
-		ni, _ := ParseNumericIdentity(k)
-		AddUserDefinedNumericIdentity(ni, lbl)
-		AddReservedIdentity(ni, lbl)
-	}
-	return nil
-}
-
-// LookupReservedIdentityByLabels looks up a reserved identity by its labels and
-// returns it if found. Returns nil if not found.
-func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
-	if identity := WellKnown.LookupByLabels(lbls); identity != nil {
-		return identity
-	}
-
-	// Check if a fixed identity exists.
-	if lbl, exists := lbls[labels.LabelKeyFixedIdentity]; exists {
-		// If the set of labels contain a fixed identity then and exists in
-		// the map of reserved IDs then return the identity of that reserved ID.
-		id := GetReservedID(lbl.Value)
-		if id != IdentityUnknown && IsUserReservedIdentity(id) {
-			return LookupReservedIdentity(id)
-		}
-		// If a fixed identity was not found then we return nil to avoid
-		// falling to a reserved identity.
-		return nil
-	}
-
-	// If there is no reserved label, return nil.
-	if !lbls.IsReserved() {
-		return nil
-	}
-
-	var nid NumericIdentity
-	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
-		nid = ReservedIdentityHost
-	} else if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) {
-		// If selecting remote-nodes via CIDR policies is allowed, then
-		// they no longer have a reserved identity.
-		if option.Config.PolicyCIDRMatchesNodes() {
-			return nil
-		}
-		// If selecting remote-nodes via node labels is allowed, then
-		// they no longer have a reserved identity and are using
-		// IdentityScopeRemoteNode.
-		if option.Config.PerNodeLabelsEnabled() {
-			return nil
-		}
-		nid = ReservedIdentityRemoteNode
-		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
-			// If there's a kube-apiserver label, then we know this is
-			// kube-apiserver reserved ID, so change it as such.
-			// Only traffic from non-kube-apiserver nodes should be
-			// considered as remote-node.
-			nid = ReservedIdentityKubeAPIServer
-		}
-	}
-
-	if nid != IdentityUnknown {
-		return NewIdentity(nid, lbls)
-	}
-
-	// We have handled all the cases where multiple labels can be present.
-	// So, we make sure the set of labels only contains a single label and
-	// that label is of the reserved type. This is to prevent users from
-	// adding cilium-reserved labels into the workloads.
-	if len(lbls) != 1 {
-		return nil
-	}
-
-	nid = GetReservedID(lbls.ToSlice()[0].Key)
-	if nid != IdentityUnknown && !IsUserReservedIdentity(nid) {
-		return LookupReservedIdentity(nid)
-	}
-	return nil
-}
-
-// IdentityAllocationIsLocal returns true if a call to AllocateIdentity with
-// the given labels would not require accessing the KV store to allocate the
-// identity.
-// Currently, this function returns true only if the labels are those of a
-// reserved identity, i.e. if the slice contains a single reserved
-// "reserved:*" label.
-func IdentityAllocationIsLocal(lbls labels.Labels) bool {
-	// If there is only one label with the "reserved" source and a well-known
-	// key, the well-known identity for it can be allocated locally.
-	return LookupReservedIdentityByLabels(lbls) != nil
 }

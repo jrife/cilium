@@ -49,13 +49,14 @@ import (
 type policyParams struct {
 	cell.In
 
-	Lifecycle       cell.Lifecycle
-	EndpointManager endpointmanager.EndpointManager
-	CertManager     certificatemanager.CertificateManager
-	SecretManager   certificatemanager.SecretManager
-	IdentityManager *identitymanager.IdentityManager
-	CacheStatus     synced.CacheStatus
-	ClusterInfo     cmtypes.ClusterInfo
+	Lifecycle             cell.Lifecycle
+	EndpointManager       endpointmanager.EndpointManager
+	CertManager           certificatemanager.CertificateManager
+	SecretManager         certificatemanager.SecretManager
+	ReservedIdentityCache identity.ReservedIdentityCache
+	IdentityManager       *identitymanager.IdentityManager
+	CacheStatus           synced.CacheStatus
+	ClusterInfo           cmtypes.ClusterInfo
 }
 
 type policyOut struct {
@@ -78,22 +79,12 @@ type policyOut struct {
 // special care.
 func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	if option.Config.EnableWellKnownIdentities {
-		// Must be done before calling policy.NewPolicyRepository() below.
-		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
-		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
-		identity.WellKnown.ForEach(func(i *identity.Identity) {
-			for labelSource := range i.Labels.CollectSources() {
-				metrics.IdentityLabelSources.WithLabelValues(labelSource).Inc()
-			}
-		})
-	}
 
 	// policy repository: maintains list of active Rules and their subject
 	// security identities. Also constructs the SelectorCache, a precomputed
 	// cache of label selector -> identities for policy peers.
 	repo := policy.NewStoppedPolicyRepository(
-		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
+		params.ReservedIdentityCache.List(), // Load SelectorCache with reserved identities
 		params.CertManager,
 		params.SecretManager,
 		params.IdentityManager,
@@ -113,7 +104,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	}
 
 	// Allocator: allocates local and cluster-wide security identities.
-	idAlloc := cache.NewCachingIdentityAllocator(iao)
+	idAlloc := cache.NewCachingIdentityAllocator(iao, identity.NewReservedIdentityCache(option.Config, cmtypes.ClusterInfo{}, identity.ReservedIdentities()))
 	idAlloc.EnableCheckpointing()
 
 	// IPCache: aggregates node-local prefix labels and allocates

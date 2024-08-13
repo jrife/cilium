@@ -54,7 +54,7 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 		Usagef(cmd, "Missing endpoint id argument")
 	}
 
-	if id := identity.GetReservedID(args[0]); id == identity.IdentityUnknown {
+	if id := identity.ReservedIdentities().ID(args[0]); id == identity.IdentityUnknown {
 		_, _, err := endpointid.Parse(args[0])
 
 		if err != nil {
@@ -260,7 +260,7 @@ func endpointToPolicyMapPath(endpointID string) (string, error) {
 	idUint64, err := strconv.ParseUint(endpointID, 10, 16)
 	if err == nil {
 		mapName = bpf.LocalMapName(policymap.MapName, uint16(idUint64))
-	} else if numericIdentity := identity.GetReservedID(endpointID); numericIdentity != identity.IdentityUnknown {
+	} else if numericIdentity := identity.ReservedIdentities().ID(endpointID); numericIdentity != identity.IdentityUnknown {
 		mapSuffix := "reserved_" + strconv.FormatUint(uint64(numericIdentity), 10)
 		mapName = fmt.Sprintf("%s%s", policymap.MapName, mapSuffix)
 	} else {

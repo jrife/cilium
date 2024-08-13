@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -136,7 +137,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 
 			// The nils are only used by k8s CRD identities. We default to kvstore.
-			allocator := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+			allocator := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities()))
 			<-allocator.InitIdentityAllocator(nil)
 
 			t.Cleanup(func() {
@@ -275,7 +276,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	ctx := context.Background()
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	allocator := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+	allocator := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities()))
 	<-allocator.InitIdentityAllocator(nil)
 
 	t.Cleanup(func() {

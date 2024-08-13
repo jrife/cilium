@@ -23,6 +23,7 @@ import (
 	"golang.org/x/exp/maps"
 	"sigs.k8s.io/yaml"
 
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -236,7 +237,7 @@ func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.Cached
 
 // Setup identities, ports and endpoint IDs we will need
 var (
-	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
+	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, identity.NewReservedIdentityCache(option.Config, types.ClusterInfo{}, identity.ReservedIdentities()))
 	testSelectorCache       = policy.NewSelectorCache(cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))

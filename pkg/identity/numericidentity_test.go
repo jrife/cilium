@@ -59,17 +59,6 @@ func TestClusterID(t *testing.T) {
 	}
 }
 
-func TestGetAllReservedIdentities(t *testing.T) {
-	allReservedIdentities := GetAllReservedIdentities()
-	require.NotNil(t, allReservedIdentities)
-	require.Len(t, allReservedIdentities, len(reservedIdentities))
-	for i, id := range allReservedIdentities {
-		// NOTE: identity 0 is unknown, so the reserved identities start at 1
-		// hence the plus one here.
-		require.Equal(t, uint32(i+1), id.Uint32())
-	}
-}
-
 func TestAsUint32Slice(t *testing.T) {
 	nids := NumericIdentitySlice{2, 42, 42, 1, 1024, 1}
 	uint32Slice := nids.AsUint32Slice()

@@ -60,7 +60,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -186,6 +185,8 @@ type Daemon struct {
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
 	bwManager    datapath.BandwidthManager
+
+	reservedIdentityCache identity.ReservedIdentityCache
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -351,11 +352,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	params.NodeManager.Subscribe(params.Datapath.Node())
 
-	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
-		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
-		metrics.IdentityLabelSources.WithLabelValues(labels.LabelSourceReserved).Inc()
-	})
-
 	d := Daemon{
 		ctx:               ctx,
 		clientset:         params.Clientset,
@@ -376,28 +372,29 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
-		identityAllocator: params.IdentityAllocator,
-		ipcache:           params.IPCache,
-		policy:            params.Policy,
-		idmgr:             params.IdentityManager,
-		cniConfigManager:  params.CNIConfigManager,
-		clusterInfo:       params.ClusterInfo,
-		clustermesh:       params.ClusterMesh,
-		monitorAgent:      params.MonitorAgent,
-		svc:               params.ServiceManager,
-		l7Proxy:           params.L7Proxy,
-		envoyXdsServer:    params.EnvoyXdsServer,
-		authManager:       params.AuthManager,
-		settings:          params.Settings,
-		bigTCPConfig:      params.BigTCPConfig,
-		tunnelConfig:      params.TunnelConfig,
-		bwManager:         params.BandwidthManager,
-		cgroupManager:     params.CGroupManager,
-		endpointManager:   params.EndpointManager,
-		k8sWatcher:        params.K8sWatcher,
-		k8sSvcCache:       params.K8sSvcCache,
-		rec:               params.Recorder,
-		ipam:              params.IPAM,
+		identityAllocator:     params.IdentityAllocator,
+		ipcache:               params.IPCache,
+		policy:                params.Policy,
+		idmgr:                 params.IdentityManager,
+		cniConfigManager:      params.CNIConfigManager,
+		clusterInfo:           params.ClusterInfo,
+		clustermesh:           params.ClusterMesh,
+		monitorAgent:          params.MonitorAgent,
+		svc:                   params.ServiceManager,
+		l7Proxy:               params.L7Proxy,
+		envoyXdsServer:        params.EnvoyXdsServer,
+		authManager:           params.AuthManager,
+		settings:              params.Settings,
+		bigTCPConfig:          params.BigTCPConfig,
+		tunnelConfig:          params.TunnelConfig,
+		bwManager:             params.BandwidthManager,
+		cgroupManager:         params.CGroupManager,
+		endpointManager:       params.EndpointManager,
+		k8sWatcher:            params.K8sWatcher,
+		k8sSvcCache:           params.K8sSvcCache,
+		rec:                   params.Recorder,
+		ipam:                  params.IPAM,
+		reservedIdentityCache: params.ReservedIdentityCache,
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them

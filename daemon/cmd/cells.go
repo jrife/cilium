@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -222,6 +223,12 @@ var (
 
 		// Auth is responsible for authenticating a request if required by a policy.
 		auth.Cell,
+
+		// Provide option.Config via hive so cells can depend on the agent config.
+		cell.Provide(func() *option.DaemonConfig { return option.Config }),
+
+		// Provides identity.Cache.
+		identity.Cell,
 
 		// IPCache, policy.Repository and CachingIdentityAllocator.
 		cell.Provide(newPolicyTrifecta),
