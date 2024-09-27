@@ -373,6 +373,14 @@ const (
 	NETKIT_POLICY_BLACKHOLE NetkitPolicy = 2
 )
 
+type NetkitScrub int
+
+const (
+	NETKIT_SCRUB_NONE   NetkitScrub = 0
+	NETKIT_SCRUB_BEFORE NetkitScrub = 1
+	NETKIT_SCRUB_AFTER  NetkitScrub = 2
+)
+
 func (n *Netkit) IsPrimary() bool {
 	return n.isPrimary
 }
@@ -387,6 +395,7 @@ type Netkit struct {
 	Mode          NetkitMode
 	Policy        NetkitPolicy
 	PeerPolicy    NetkitPolicy
+	Scrub         NetkitScrub
 	isPrimary     bool
 	peerLinkAttrs LinkAttrs
 }

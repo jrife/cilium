@@ -60,6 +60,7 @@ func SetupNetkitWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gso
 		Mode:       mode,
 		Policy:     netlink.NETKIT_POLICY_FORWARD,
 		PeerPolicy: netlink.NETKIT_POLICY_BLACKHOLE,
+		Scrub:      netlink.NETKIT_SCRUB_AFTER,
 	}
 	peerAttr := &netlink.LinkAttrs{
 		Name: peerIfName,
