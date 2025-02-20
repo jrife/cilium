@@ -237,17 +237,9 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 // objects to the given object. It is a wrapper around [LoadCollection]. See its
 // documentation for more details on the loading process.
 func LoadAndAssign(to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (func() error, error) {
-	log.Debug("Loading Collection into kernel")
-
-	coll, commit, err := LoadCollection(spec, opts)
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
-		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
-			return nil, fmt.Errorf("writing verifier log to stderr: %w", err)
-		}
-	}
+	coll, commit, err := Load(spec, opts)
 	if err != nil {
-		return nil, fmt.Errorf("loading eBPF collection into the kernel: %w", err)
+		return nil, err
 	}
 
 	if err := coll.Assign(to); err != nil {
@@ -255,6 +247,23 @@ func LoadAndAssign(to any, spec *ebpf.CollectionSpec, opts *CollectionOptions) (
 	}
 
 	return commit, nil
+}
+
+func Load(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.Collection, func() error, error) {
+	log.Debug("Loading Collection into kernel")
+
+	coll, commit, err := LoadCollection(spec, opts)
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
+			return nil, nil, fmt.Errorf("writing verifier log to stderr: %w", err)
+		}
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("loading eBPF collection into the kernel: %w", err)
+	}
+
+	return coll, commit, nil
 }
 
 type CollectionOptions struct {
@@ -331,6 +340,11 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 
 	if err != nil {
 		return nil, nil, err
+	}
+
+	fmt.Printf("After load: spec=%+v,\n coll=%+v\n", spec.Maps, coll.Maps)
+	for n, ms := range spec.Maps {
+		fmt.Printf("mapspec %s name = %s\n", n, ms.Name)
 	}
 
 	// Collect Maps that need their bpffs pins replaced. Pull out Map objects

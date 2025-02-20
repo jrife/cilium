@@ -54,6 +54,7 @@
 #include "lib/encrypt.h"
 #include "lib/wireguard.h"
 #include "lib/vxlan.h"
+#include "lib/hooks.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
 
@@ -64,6 +65,9 @@
 static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __maybe_unused vlan_id) {
 	VLAN_FILTER(ifindex, vlan_id);
 }
+
+// EP_HOOK_POINT(to_netdev_ipv4);
+EP_HOOK_POINT(from_netdev_ipv4);
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
@@ -1245,9 +1249,10 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
 
-		ret = tail_call_internal(ctx, from_host ? CILIUM_CALL_IPV4_FROM_HOST :
-							  CILIUM_CALL_IPV4_FROM_NETDEV,
-					 &ext_err);
+		if (!from_host)
+			ret = hook_point_from_netdev_ipv4(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
+		else
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_HOST, &ext_err);
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.
 		 *

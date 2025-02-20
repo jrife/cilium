@@ -1,0 +1,36 @@
+apiVersion: cilium.io/v2alpha1
+kind: CiliumDatapathPlugin
+metadata:
+  name: plugin1
+spec:
+  source:
+    inTree: plugin1
+  attachments:
+  - programName: a
+    attachmentPoint:
+      type: endpoint
+      direction: ingress
+      hook: abc
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumDatapathPlugin
+metadata:
+  name: plugin2
+spec:
+  source:
+    inTree: plugin2
+  attachments:
+  - programName: a
+    attachmentPoint:
+      type: endpoint
+      direction: ingress
+      hook: abc
+---
+apiVersion: cilium.io/v2alpha1
+kind:   CiliumDatapathConfiguration
+metadata:
+  name: cilium-datapath-plugins
+spec:
+  plugins:
+  - plugin1
+  - plugin2

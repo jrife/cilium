@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 
@@ -85,6 +86,7 @@ type loader struct {
 	compilationLock datapath.CompilationLock
 	configWriter    datapath.ConfigWriter
 	nodeHandler     datapath.NodeHandler
+	plugins         []string
 }
 
 type Params struct {
@@ -95,6 +97,7 @@ type Params struct {
 	CompilationLock datapath.CompilationLock
 	ConfigWriter    datapath.ConfigWriter
 	NodeHandler     datapath.NodeHandler
+	PluginConfig    PluginConfig
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -111,6 +114,7 @@ func newLoader(p Params) *loader {
 		compilationLock:   p.CompilationLock,
 		configWriter:      p.ConfigWriter,
 		nodeHandler:       p.NodeHandler,
+		plugins:           p.PluginConfig.DatapathPlugins,
 	}
 }
 
@@ -217,6 +221,13 @@ func hostRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, if
 	callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, templateLxcID)
 	strings[callsMapHostDevice] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifIndex))
 
+	for name, _ := range Hooks {
+		endpointHooksMapPrefix := fmt.Sprintf("endpoint_hooks_%s_map_", name)
+		templateStr := bpf.LocalMapName(endpointHooksMapPrefix, templateLxcID)
+		desiredStr := bpf.LocalMapName(endpointHooksMapPrefix, uint16(ifIndex))
+		strings[templateStr] = desiredStr
+	}
+
 	return opts, strings, nil
 }
 
@@ -313,7 +324,7 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 
 // reloadHostEndpoint (re)attaches programs from bpf_host.c to cilium_host,
 // cilium_net and external (native) devices.
-func reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec, pluginSpecs map[string]*ebpf.CollectionSpec) error {
 	// Replace programs on cilium_host.
 	if err := attachCiliumHost(ep, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
@@ -323,7 +334,7 @@ func reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoi
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
-	if err := attachNetworkDevices(cfg, ep, spec); err != nil {
+	if err := attachNetworkDevices(cfg, ep, spec, pluginSpecs); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
@@ -415,7 +426,7 @@ func attachCiliumNet(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint,
 // attachNetworkDevices attaches programs from bpf_host.c to externally-facing
 // devices and the wireguard device. Attaches cil_from_netdev to ingress and
 // optionally cil_to_netdev to egress if enabled features require it.
-func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec, pluginSpecs map[string]*ebpf.CollectionSpec) error {
 	devices := cfg.DeviceNames()
 
 	// Selectively attach bpf_host to cilium_wg0.
@@ -439,17 +450,77 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 		}
 
 		var netdevObj hostNetdevObjects
-		commit, err := bpf.LoadAndAssign(&netdevObj, spec, &bpf.CollectionOptions{
+		coll, commit, err := bpf.Load(spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
 			MapRenames: renames,
 			Constants:  consts,
 		})
-		if err != nil {
+		if err := coll.Assign(&netdevObj); err != nil {
 			return err
 		}
 		defer netdevObj.Close()
+
+		hostPluginCollections := map[string]*ebpf.Collection{}
+		var commits []func() error
+		callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, templateLxcID)
+		for pluginName, spec := range pluginSpecs {
+			coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+				CollectionOptions: ebpf.CollectionOptions{
+					Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+					MapReplacements: map[string]*ebpf.Map{
+						callsMapHostDevice: coll.Maps[callsMapHostDevice],
+					},
+				},
+				MapRenames: renames,
+				Constants:  consts,
+			})
+			if err != nil {
+				return fmt.Errorf("loading collection for plugin %s: %w", pluginName, err)
+			}
+			commits = append(commits, commit)
+			hostPluginCollections[pluginName] = coll
+		}
+
+		hooks := make(map[string][]*ebpf.Program)
+		for _, pluginColl := range hostPluginCollections {
+			for name, prog := range pluginColl.Programs {
+				if !strings.HasPrefix(name, "hook_prog_") {
+					continue
+				}
+
+				hookName := name[len("hook_prog_"):]
+				if Hooks[hookName] {
+					hooks[hookName] = append(hooks[hookName], prog)
+				}
+			}
+		}
+
+		// Really hacky way to reset our maps. We should probably create a replacement
+		// map instead to make things atomic.
+		for name, m := range coll.Maps {
+			if !strings.HasPrefix(name, "endpoint_hooks_") {
+				continue
+			}
+
+			for i := 0; i < int(m.MaxEntries()); i++ {
+				fmt.Printf("Delete map entry")
+				m.Delete(uint32(i))
+			}
+		}
+
+		// Now populate hook maps here
+		for hookName, progs := range hooks {
+			m := coll.Maps[fmt.Sprintf("endpoint_hooks_%s_map_65535", hookName)]
+			fmt.Printf("coll.Maps[endpoint_hooks_%s_map_65535] = %+v\n", hookName, m)
+
+			for i, prog := range progs {
+				if err := m.Update(uint32(i), prog, ebpf.UpdateAny); err != nil {
+					return fmt.Errorf("inserting hook program for %s: %w", hookName, err)
+				}
+			}
+		}
 
 		// Attach cil_from_netdev to ingress.
 		if err := attachSKBProgram(iface, netdevObj.FromNetdev, symbolFromHostNetdevEp,
@@ -479,6 +550,12 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 		if err := commit(); err != nil {
 			return fmt.Errorf("committing bpf pins: %w", err)
 		}
+
+		for _, commit := range commits {
+			if err := commit(); err != nil {
+				return fmt.Errorf("committing bpf pings: %w", err)
+			}
+		}
 	}
 
 	// Call immediately after attaching programs to make it obvious that a
@@ -494,21 +571,42 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
+func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec, pluginSpecs map[string]*ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
 	var obj lxcObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+	coll, commit, err := bpf.Load(spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		MapRenames: ELFMapSubstitutions(ep),
 		Constants:  ELFVariableSubstitutions(ep),
 	})
-	if err != nil {
-		return err
+	if err := coll.Assign(&obj); err != nil {
+		return fmt.Errorf("assigning eBPF objects to %T: %w", &obj, err)
 	}
 	defer obj.Close()
+
+	lxcPluginCollections := map[string]*ebpf.Collection{}
+	var commits []func() error
+	callsMapName := bpf.LocalMapName(callsmap.MapName, templateLxcID)
+	for pluginName, spec := range pluginSpecs {
+		coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+			CollectionOptions: ebpf.CollectionOptions{
+				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+				MapReplacements: map[string]*ebpf.Map{
+					callsMapName: coll.Maps[callsMapName],
+				},
+			},
+			MapRenames: ELFMapPluginSubstitutions(ep),
+			Constants:  ELFVariableSubstitutions(ep),
+		})
+		if err != nil {
+			return fmt.Errorf("loading collection for plugin %s: %w", pluginName, err)
+		}
+		commits = append(commits, commit)
+		lxcPluginCollections[pluginName] = coll
+	}
 
 	// Insert policy programs before attaching entrypoints to tc hooks.
 	// Inserting a policy program is considered an attachment, since it makes
@@ -522,6 +620,45 @@ func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	}
 	if err := obj.EgressPolicyMap.Update(uint32(ep.GetID()), obj.EgressPolicyProg, ebpf.UpdateAny); err != nil {
 		return fmt.Errorf("inserting endpoint egress policy program: %w", err)
+	}
+
+	hooks := make(map[string][]*ebpf.Program)
+	for _, pluginColl := range lxcPluginCollections {
+		for name, prog := range pluginColl.Programs {
+			if !strings.HasPrefix(name, "hook_prog_") {
+				continue
+			}
+
+			hookName := name[len("hook_prog_"):]
+			if Hooks[hookName] {
+				hooks[hookName] = append(hooks[hookName], prog)
+			}
+		}
+	}
+
+	// Really hacky way to reset our maps. We should probably create a replacement
+	// map instead to make things atomic.
+	for name, m := range coll.Maps {
+		if !strings.HasPrefix(name, "endpoint_hooks_") {
+			continue
+		}
+
+		for i := 0; i < int(m.MaxEntries()); i++ {
+			fmt.Printf("Delete map entry")
+			m.Delete(uint32(i))
+		}
+	}
+
+	// Now populate hook maps here
+	for hookName, progs := range hooks {
+		m := coll.Maps[fmt.Sprintf("endpoint_hooks_%s_map_65535", hookName)]
+		fmt.Printf("coll.Maps[endpoint_hooks_%s_map_65535] = %+v\n", hookName, m)
+
+		for i, prog := range progs {
+			if err := m.Update(uint32(i), prog, ebpf.UpdateAny); err != nil {
+				return fmt.Errorf("inserting hook program for %s: %w", hookName, err)
+			}
+		}
 	}
 
 	iface, err := safenetlink.LinkByName(device)
@@ -548,6 +685,12 @@ func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
+	}
+
+	for _, commit := range commits {
+		if err := commit(); err != nil {
+			return fmt.Errorf("committing bpf pings: %w", err)
+		}
 	}
 
 	if ep.RequireEndpointRoute() {
@@ -664,11 +807,20 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *
 	if err != nil {
 		return "", err
 	}
+	pluginSpecs := map[string]*ebpf.CollectionSpec{}
+	for _, p := range l.plugins {
+		ps, _, err := l.templateCache.fetchOrCompilePlugin(ctx, cfg, ep, p, &dirs, stats)
+		if err != nil {
+			continue
+		}
+
+		pluginSpecs[p] = ps
+	}
 
 	if ep.IsHost() {
 		// Reload bpf programs on cilium_host and cilium_net.
 		stats.BpfLoadProg.Start()
-		err = reloadHostEndpoint(cfg, ep, spec)
+		err = reloadHostEndpoint(cfg, ep, spec, pluginSpecs)
 		stats.BpfLoadProg.End(err == nil)
 
 		l.hostDpInitializedOnce.Do(func() {
@@ -681,7 +833,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(ep, spec)
+	err = reloadEndpoint(ep, spec, pluginSpecs)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -752,4 +904,16 @@ func (l *loader) HostDatapathInitialized() <-chan struct{} {
 
 func (l *loader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, lnCfg *datapath.LocalNodeConfiguration) error {
 	return l.configWriter.WriteEndpointConfig(w, lnCfg, e)
+}
+
+type PluginConfig struct {
+	DatapathPlugins []string
+}
+
+var defaultPluginConfig = PluginConfig{
+	DatapathPlugins: []string{},
+}
+
+func (def PluginConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringArray("datapath-plugins", def.DatapathPlugins, "Sets the list of datapath plugins to enable")
 }
