@@ -308,6 +308,30 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 	return nil
 }
 
+func compilePlugin(ctx context.Context, prog *progInfo, dirs *directoryInfo, logger *logrus.Entry) error {
+	scopedLog := logger.WithField(logfields.Debug, true)
+
+	versionCmd := exec.CommandContext(ctx, compiler, "--version")
+	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	if err != nil {
+		return err
+	}
+	scopedLog.WithFields(logrus.Fields{
+		compiler: string(compilerVersion),
+	}).Debug("Compiling plugin")
+
+	if _, err := compile(ctx, prog, dirs); err != nil {
+		// Only log an error here if the context was not canceled. This log message
+		// should only represent failures with respect to compiling the program.
+		if !errors.Is(err, context.Canceled) {
+			scopedLog.WithField(logfields.Params, logfields.Repr(prog)).WithError(err).Warn("Failed to compile")
+		}
+		return err
+	}
+
+	return nil
+}
+
 // compileWithOptions compiles a BPF program generating an object file,
 // using a set of provided compiler options.
 func compileWithOptions(ctx context.Context, src string, out string, opts []string) error {

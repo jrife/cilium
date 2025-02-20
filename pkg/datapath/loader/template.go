@@ -153,8 +153,19 @@ func ELFMapSubstitutions(ep datapath.EndpointConfiguration) map[string]string {
 			(!option.Config.EnableCustomCalls || ep.IsHost()) {
 			continue
 		}
+
 		templateStr := bpf.LocalMapName(name, templateLxcID)
 		desiredStr := bpf.LocalMapName(name, epID)
+		result[templateStr] = desiredStr
+	}
+	for name, _ := range Hooks {
+		if ep.IsHost() {
+			continue
+		}
+
+		endpointHooksMapPrefix := fmt.Sprintf("endpoint_hooks_%s_map_", name)
+		templateStr := bpf.LocalMapName(endpointHooksMapPrefix, templateLxcID)
+		desiredStr := bpf.LocalMapName(endpointHooksMapPrefix, epID)
 		result[templateStr] = desiredStr
 	}
 	if ep.ConntrackLocalLocked() {
@@ -163,6 +174,22 @@ func ELFMapSubstitutions(ep datapath.EndpointConfiguration) map[string]string {
 			desiredStr := bpf.LocalMapName(name, epID)
 			result[templateStr] = desiredStr
 		}
+	}
+
+	fmt.Printf("ELFMapSubstitutions = %+v", result)
+
+	return result
+}
+
+func ELFMapPluginSubstitutions(ep datapath.Endpoint) map[string]string {
+	epID := uint16(ep.GetID())
+	result := map[string]string{}
+
+	for name, _ := range Hooks {
+		endpointHooksMapPrefix := fmt.Sprintf("endpoint_hooks_%s_map_", name)
+		templateStr := bpf.LocalMapName(endpointHooksMapPrefix, templateLxcID)
+		desiredStr := bpf.LocalMapName(endpointHooksMapPrefix, epID)
+		result[templateStr] = desiredStr
 	}
 
 	return result

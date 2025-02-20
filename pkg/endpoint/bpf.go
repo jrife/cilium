@@ -871,6 +871,8 @@ func (e *Endpoint) deleteMaps() []error {
 		}
 	}
 
+	// TODO: cleanup maps for hooks here
+
 	return errors
 }
 

@@ -152,6 +152,58 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConf
 	return objectPath, nil
 }
 
+// build attempts to compile and cache a datapath template object file
+// corresponding to the specified endpoint configuration.
+func (o *objectCache) buildPlugin(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, p string, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
+	templatePath := filepath.Join(o.workingDirectory, hash)
+	dir = &directoryInfo{
+		Library: dir.Library,
+		Runtime: dir.Runtime,
+		Output:  templatePath,
+		State:   templatePath,
+	}
+	name := "lxc"
+	if cfg.IsHost() {
+		name = "host"
+	}
+
+	prog := &progInfo{
+		Source:     fmt.Sprintf("plugins/%s/hooks/%s.c", p, name),
+		Output:     fmt.Sprintf("%s-%s.o", p, name),
+		OutputType: outputObject,
+	}
+
+	objectPath := prog.AbsoluteOutput(dir)
+
+	if err := os.MkdirAll(dir.Output, defaults.StateDirRights); err != nil {
+		return "", fmt.Errorf("failed to create template directory: %w", err)
+	}
+
+	headerPath := filepath.Join(dir.State, common.CHeaderFileName)
+	f, err := os.Create(headerPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open template header for writing: %w", err)
+	}
+	defer f.Close()
+	if err = o.ConfigWriter.WriteEndpointConfig(f, nodeCfg, cfg); err != nil {
+		return "", fmt.Errorf("failed to write template header: %w", err)
+	}
+
+	stats.BpfCompilation.Start()
+	err = compilePlugin(ctx, prog, dir, log)
+	stats.BpfCompilation.End(err == nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to compile template program: %w", err)
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.Path:               objectPath,
+		logfields.BPFCompilationTime: stats.BpfCompilation.Total(),
+	}).Info("Compiled new BPF template")
+
+	return objectPath, nil
+}
+
 // fetchOrCompile attempts to fetch the path to the datapath object
 // corresponding to the provided endpoint configuration, or if this
 // configuration is not yet compiled, compiles it. It will block if multiple
@@ -162,7 +214,7 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConf
 func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
 	cfg = wrap(cfg)
 
-	hash, err = o.baseHash.hashTemplate(o, nodeCfg, cfg)
+	hash, err = o.baseHash.hashTemplate(o, nodeCfg, cfg, nil)
 	if err != nil {
 		return nil, "", err
 	}
@@ -201,6 +253,56 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 	}
 
 	path, err := o.build(ctx, nodeCfg, cfg, stats, dir, hash)
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
+			scopedLog.WithError(err).Error("BPF template object creation failed")
+		}
+		return nil, "", err
+	}
+
+	obj.spec, err = bpf.LoadCollectionSpec(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("load eBPF ELF %s: %w", path, err)
+	}
+
+	return obj.spec.Copy(), hash, nil
+}
+
+func (o *objectCache) fetchOrCompilePlugin(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, p string, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
+	cfg = wrap(cfg)
+
+	// We need to generate a different hash for the same config. In other words,
+	// the input to the hash should include nodeCfg+cfg+type where type is the
+	// plugin name perhaps.
+	hash, err = o.baseHash.hashTemplate(o, nodeCfg, cfg, []byte(p))
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Capture the time spent waiting for the template to compile.
+	if stats != nil {
+		stats.BpfWaitForELF.Start()
+		defer func() {
+			// Wrap to ensure that "err" is compared upon return.
+			stats.BpfWaitForELF.End(err == nil)
+		}()
+	}
+
+	scopedLog := log.WithField(logfields.BPFHeaderfileHash, hash)
+
+	// Only allow a single concurrent compilation per hash.
+	obj := o.serialize(hash)
+	defer obj.Unlock()
+
+	if obj.spec != nil {
+		return obj.spec.Copy(), hash, nil
+	}
+
+	if stats == nil {
+		stats = &metrics.SpanStat{}
+	}
+
+	path, err := o.buildPlugin(ctx, nodeCfg, cfg, p, stats, dir, hash)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			scopedLog.WithError(err).Error("BPF template object creation failed")

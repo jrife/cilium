@@ -52,6 +52,7 @@
 #include "lib/fib.h"
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
+#include "lib/hooks.h"
 
 /* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
  * Most services with L7 LB flag can not be redirected to their proxy port
@@ -1429,6 +1430,8 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 	return ret;
 }
 
+EP_HOOK_POINT(from_container_pre_ct_v4);
+
 #ifdef ENABLE_ARP_RESPONDER
 /*
  * ARP responder for ARP requests from container
@@ -1507,7 +1510,7 @@ int cil_from_container(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		edt_set_aggregate(ctx, LXC_ID);
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
+		ret = hook_point_from_container_pre_ct_v4(ctx, CILIUM_CALL_IPV4_FROM_LXC);
 		sec_label = SECLABEL_IPV4;
 		break;
 #ifdef ENABLE_ARP_PASSTHROUGH
@@ -2200,6 +2203,8 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
 		1, CILIUM_CALL_IPV4_TO_ENDPOINT, tail_ipv4_to_endpoint)
+
+EP_HOOK_POINT(to_container_pre_ct_v4);
 #endif /* ENABLE_IPV4 */
 
 /* Handle policy decisions as the packet makes its way towards the endpoint.
@@ -2238,9 +2243,7 @@ int handle_policy(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-					 CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
-					 tail_ipv4_ct_ingress_policy_only, &ext_err);
+		ret = hook_point_to_container_pre_ct_v4(ctx, CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY);
 		sec_label = SECLABEL_IPV4;
 		break;
 #endif /* ENABLE_IPV4 */
@@ -2386,7 +2389,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 	case bpf_htons(ETH_P_IP):
 		sec_label = SECLABEL_IPV4;
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS, &ext_err);
+		ret = hook_point_to_container_pre_ct_v4(ctx, CILIUM_CALL_IPV4_CT_INGRESS);
 		break;
 #endif /* ENABLE_IPV4 */
 	default:

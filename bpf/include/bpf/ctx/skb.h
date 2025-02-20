@@ -11,6 +11,10 @@
 #include "common.h"
 #include "../helpers_skb.h"
 
+#ifndef TC_ACT_UNSPEC
+#define TC_ACT_UNSPEC -1
+#endif
+
 #ifndef TC_ACT_OK
 # define TC_ACT_OK		0
 #endif

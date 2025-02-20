@@ -50,13 +50,13 @@ func (d datapathHash) hashEndpoint(c datapath.ConfigWriter, nodeCfg *datapath.Lo
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func (d datapathHash) hashTemplate(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, epCfg datapath.EndpointConfiguration) (string, error) {
+func (d datapathHash) hashTemplate(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, epCfg datapath.EndpointConfiguration, salt []byte) (string, error) {
 	h := sha256.New()
 	_, _ = h.Write(d)
 	if err := c.WriteTemplateConfig(h, nodeCfg, epCfg); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	return hex.EncodeToString(h.Sum(salt)), nil
 }
 
 func (d datapathHash) String() string {

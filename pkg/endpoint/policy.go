@@ -405,15 +405,15 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	// the state remains unchanged
 	//
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
-	if e.getState() != StateWaitingForIdentity &&
-		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+ctx.Reason) {
-		if debugLogsEnabled {
-			e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
-		}
-		e.unlock()
+	// if e.getState() != StateWaitingForIdentity &&
+	// 	!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+ctx.Reason) {
+	// 	if debugLogsEnabled {
+	// 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
+	// 	}
+	// 	e.unlock()
 
-		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
-	}
+	// 	return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
+	// }
 
 	// Bump priority if higher priority event was skipped.
 	// This must be done in the same critical section as the state transition above.
