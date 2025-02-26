@@ -1156,7 +1156,7 @@ ct_recreate4:
 		__be32 daddr = ip4->daddr;
 		struct endpoint_info *ep;
 
-		/* Loopback replies are addressed to IPV4_LOOPBACK, so
+		/* Loopback replies are addressed to CONFIG(ipv4_loopback), so
 		 * an endpoint lookup with ip4->daddr won't work.
 		 *
 		 * But as it is loopback traffic, the clientIP and backendIP
@@ -1934,12 +1934,12 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		 * want to execute the conntrack logic so that replies can be correctly
 		 * matched.
 		 *
-		 * If ip4.saddr is IPV4_LOOPBACK, this is almost certainly a loopback
-		 * connection. Populate
+		 * If ip4.saddr is CONFIG(ipv4_loopback), this is almost certainly a
+		 * loopback connection. Populate
 		 * - .loopback, so that policy enforcement is bypassed, and
 		 * - .rev_nat_index, so that replies can be RevNATed.
 		 */
-		if (ret == CT_NEW && ip4->saddr == IPV4_LOOPBACK &&
+		if (ret == CT_NEW && ip4->saddr == CONFIG(ipv4_loopback) &&
 		    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
 			ct_state_new.loopback = true;
 			break;
