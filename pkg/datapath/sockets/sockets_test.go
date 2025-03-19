@@ -4,12 +4,207 @@
 package sockets
 
 import (
+	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
+
+	"golang.org/x/sys/unix"
 )
+
+const (
+	bpfSockTerm = "bpf_sock_term.o"
+)
+
+type netlinkDestroyer struct{}
+
+func (d netlinkDestroyer) Destroy(filter SocketFilter) (func() error, func() error, error) {
+	return func() error {
+		return DestroyNetlink(filter)
+	}, func() error { return nil }, nil
+}
+
+type bpfDestroyer struct{}
+
+func (d bpfDestroyer) Destroy(filter SocketFilter) (func() error, func() error, error) {
+	return DestroyBPF(filter)
+}
+
+func TestSocketDestroyers(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	origPath := loader.BPFSockTermPath
+	loader.BPFSockTermPath = findInPath(t, bpfSockTerm)
+	t.Cleanup(func() {
+		loader.BPFSockTermPath = origPath
+	})
+	socketDestroyers := map[string]SocketDestroyer{
+		"netlink": &netlinkDestroyer{},
+		"bpf":     &bpfDestroyer{},
+	}
+	servers := map[string]string{
+		"127.0.0.1:8888": "udp",
+		"[::1]:8888":     "udp6",
+		"127.0.0.1:8889": "udp",
+		"[::1]:8889":     "udp6",
+	}
+	testCases := map[string]struct {
+		filter      SocketFilter
+		expectClose []string
+	}{
+		"close 127.0.0.1:8888": {
+			filter: SocketFilter{
+				DestIp:   net.IPv4(127, 0, 0, 1),
+				DestPort: 8888,
+				Family:   unix.AF_INET,
+				Protocol: unix.IPPROTO_UDP,
+			},
+			expectClose: []string{
+				"127.0.0.1:8888",
+			},
+		},
+		"close [::1]:8888": {
+			filter: SocketFilter{
+				DestIp:   net.IPv6loopback,
+				DestPort: 8888,
+				Family:   unix.AF_INET6,
+				Protocol: unix.IPPROTO_UDP,
+			},
+			expectClose: []string{
+				"[::1]:8888",
+			},
+		},
+	}
+
+	for dName, d := range socketDestroyers {
+		t.Run(dName, func(t *testing.T) {
+			for name, tc := range testCases {
+				t.Run(name, func(t *testing.T) {
+					ns := netns.NewNetNS(t)
+					defer ns.Close()
+
+					if err := ns.Do(func() error {
+						conns := make(map[string]net.Conn)
+
+						link, err := netlink.LinkByName("lo")
+						if err != nil {
+							return fmt.Errorf("looking up lo: %w", err)
+						}
+
+						if err := netlink.LinkSetUp(link); err != nil {
+							return fmt.Errorf("bringing up lo: %w", err)
+						}
+
+						for addr, network := range servers {
+							server, err := startServer(t, network, addr)
+							if err != nil {
+								return fmt.Errorf("starting server (%s): %w", addr, err)
+							}
+
+							defer server.Close()
+
+							conn, err := net.Dial(network, addr)
+							if err != nil {
+								return fmt.Errorf("connecting: %w", err)
+							}
+
+							defer conn.Close()
+
+							conns[addr] = conn
+						}
+
+						do, done, err := d.Destroy(tc.filter)
+						if err != nil {
+							return fmt.Errorf("expected d.Destroy() to succeed, returned %w", err)
+						}
+
+						defer done()
+
+						if err := do(); err != nil {
+							return fmt.Errorf("doing destroy: %w", err)
+						}
+
+						closed := make(map[string]bool)
+						for addr, conn := range conns {
+							var b [8]byte
+							_, err := conn.Write(b[:])
+							if err != nil {
+								closed[addr] = true
+								delete(conns, addr)
+							}
+						}
+
+						if len(tc.expectClose) != len(closed) {
+							return fmt.Errorf("expected %d closed sockets, got %d", len(tc.expectClose), len(closed))
+						}
+
+						for _, addr := range tc.expectClose {
+							if closed[addr] {
+								continue
+							}
+
+							return fmt.Errorf("expected %s to be closed", addr)
+						}
+
+						return nil
+					}); err != nil {
+						t.Fatalf("in do: %v", err)
+					}
+				})
+			}
+		})
+	}
+}
+
+func findInPath(t *testing.T, file string) string {
+	t.Helper()
+
+	// This logic adapted from os/exec.LookPath except for the parts that
+	// check if the file is executable.
+	path := os.Getenv("PATH")
+	for _, dir := range filepath.SplitList(path) {
+		if dir == "" {
+			// Unix shell semantics: path element "" means "."
+			dir = "."
+		}
+		path := filepath.Join(dir, file)
+		d, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		m := d.Mode()
+		if m.IsDir() {
+			continue
+		}
+
+		return path
+	}
+
+	t.Fatalf("%s not found", file)
+
+	return ""
+}
+
+func startServer(t *testing.T, network string, addr string) (net.Conn, error) {
+	udpAddr, err := net.ResolveUDPAddr(network, addr)
+	if err != nil {
+		return nil, fmt.Errorf("resolving address (%s): %w", network, err)
+	}
+
+	conn, err := net.ListenUDP(network, udpAddr)
+	if err != nil {
+		return nil, fmt.Errorf("starting server: %w", err)
+	}
+
+	return conn, nil
+}
 
 func TestSocketReqSerialize(t *testing.T) {
 	testCases := []struct {

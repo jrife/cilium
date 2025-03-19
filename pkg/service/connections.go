@@ -64,13 +64,19 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 		return s.lbmap.ExistsSockRevNat(cookie, id.Destination, id.DestinationPort)
 	}
 
-	err := s.backendConnectionHandler.Destroy(sockets.SocketFilter{
+	destroy, done, err := s.backendConnectionHandler.Destroy(sockets.SocketFilter{
 		Family:    family,
 		Protocol:  protocol,
 		DestIp:    ip,
 		DestPort:  l4Addr.Port,
 		DestroyCB: checkSockInRevNat,
 	})
+	if err != nil {
+		log.WithError(err).Error("error while preparing socket destroyer")
+		return
+	}
+	defer done()
+	err = destroy()
 	if err != nil {
 		if errors.Is(err, unix.EOPNOTSUPP) {
 			opSupported = false
@@ -106,15 +112,7 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 				}).Debug("Error opening netns")
 				continue
 			}
-			err = ns.Do(func() error {
-				return s.backendConnectionHandler.Destroy(sockets.SocketFilter{
-					Family:    family,
-					Protocol:  protocol,
-					DestIp:    ip,
-					DestPort:  l4Addr.Port,
-					DestroyCB: checkSockInRevNat,
-				})
-			})
+			err = ns.Do(destroy)
 			ns.Close()
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
@@ -130,8 +128,26 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 }
 
 // backendConnectionHandler is added for dependency injection in tests.
-type backendConnectionHandler struct{}
+type backendConnectionHandler struct {
+	useNetlink bool
+}
 
-func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) error {
-	return sockets.Destroy(filter)
+func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) (func() error, func() error, error) {
+	doneNetlink := func() error { return nil }
+	destroyNetlink := func() error {
+		return sockets.DestroyNetlink(filter)
+	}
+
+	if h.useNetlink {
+		return destroyNetlink, doneNetlink, nil
+	}
+
+	destroyBPF, doneBPF, err := sockets.DestroyBPF(filter)
+	if err != nil {
+		log.WithError(err).Error("failed to prepare BPF socket destroyer, falling back to sock_diag")
+		h.useNetlink = true
+		return destroyNetlink, doneNetlink, nil
+	}
+
+	return destroyBPF, doneBPF, nil
 }

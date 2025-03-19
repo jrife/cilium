@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"syscall"
 
@@ -16,6 +17,9 @@ import (
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/ebpf/link"
+
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -34,7 +38,7 @@ var (
 )
 
 type SocketDestroyer interface {
-	Destroy(filter SocketFilter) error
+	Destroy(filter SocketFilter) (func() error, func() error, error)
 }
 
 type SocketFilter struct {
@@ -48,12 +52,12 @@ type SocketFilter struct {
 
 type DestroySocketCB func(id netlink.SocketID) bool
 
-// Destroy destroys sockets matching the passed filter parameters using the
-// sock_diag netlink framework.
+// DestroyNetlink destroys sockets matching the passed filter parameters using
+// the sock_diag netlink framework.
 //
 // Supported families in the filter: syscall.AF_INET, syscall.AF_INET6
 // Supported protocols in the filter: unix.IPPROTO_UDP
-func Destroy(filter SocketFilter) error {
+func DestroyNetlink(filter SocketFilter) error {
 	family := filter.Family
 	protocol := filter.Protocol
 
@@ -101,6 +105,70 @@ func Destroy(filter SocketFilter) error {
 	}
 
 	return nil
+}
+
+// DestroyBPF loads an instance of cil_sock_udp_destroy with the given config
+// and returns do and done. do creates a new socket iterator that iterates
+// through and destroys all matching sockets in the current network namespace.
+// done releases the program instance.
+func DestroyBPF(filter SocketFilter) (do func() error, done func() error, err error) {
+	prog, err := loader.LoadSockTerm(loader.SockParams{
+		IP:       filter.DestIp,
+		Family:   filter.Family,
+		Port:     filter.DestPort,
+		Protocol: filter.Protocol,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return func() error {
+		iter, err := link.AttachIter(link.IterOptions{
+			Program: prog,
+		})
+		if err != nil {
+			return fmt.Errorf("creating iterator: %w", err)
+		}
+
+		defer iter.Close()
+
+		rc, err := iter.Open()
+		if err != nil {
+			return fmt.Errorf("creating reader: %w", err)
+		}
+
+		defer rc.Close()
+
+		var cookie [8]byte
+		var n int
+		count := 0
+		for err == nil {
+			n, err = rc.Read(cookie[:])
+			if err != nil || n == 0 {
+				continue
+			}
+
+			if n != len(cookie) {
+				log.Warnf("Expected to read %d bytes, got %d", len(cookie), n)
+				continue
+			}
+
+			log.Debugf("Destroyed socket with cookie %v", native.Uint64(cookie[:]))
+			count++
+		}
+
+		log.WithFields(logrus.Fields{
+			"filter":    filter,
+			"destroyed": count,
+			"error":     err,
+		}).Info("Forcefully terminated sockets")
+
+		if err != io.EOF {
+			return fmt.Errorf("reading: %w", err)
+		}
+
+		return nil
+	}, prog.Close, nil
 }
 
 func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
