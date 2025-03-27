@@ -31,7 +31,7 @@ type sockTermObjects struct {
 
 // LoadSockTerm configures and loads the cil_sock_udp_destroy program with the
 // given params.
-func LoadSockTerm(params SockParams) (*ebpf.Program, error) {
+func LoadSockTerm(params SockParams, opts *ebpf.CollectionOptions) (*ebpf.Program, error) {
 	spec, err := bpf.LoadCollectionSpec(BPFSockTermPath)
 	if err != nil {
 		return nil, fmt.Errorf("load eBPF ELF: %w", err)
@@ -68,11 +68,14 @@ func LoadSockTerm(params SockParams) (*ebpf.Program, error) {
 	}
 
 	var obj sockTermObjects
-	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
-		CollectionOptions: ebpf.CollectionOptions{
+	if opts == nil {
+		opts = &ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
-		},
-		Constants: co,
+		}
+	}
+	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+		CollectionOptions: *opts,
+		Constants:         co,
 	})
 
 	if err != nil {

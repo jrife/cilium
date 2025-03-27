@@ -10,10 +10,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
+	"github.com/cilium/ebpf"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"golang.org/x/sys/unix"
@@ -23,32 +27,63 @@ const (
 	bpfSockTerm = "bpf_sock_term.o"
 )
 
-type netlinkDestroyer struct{}
+type SocketDestroyerBuilder func(tb testing.TB, f SocketFilter) SocketDestroyer
 
-func (d netlinkDestroyer) Destroy(filter SocketFilter) (func() error, func() error, error) {
-	return func() error {
-		return DestroyNetlink(filter)
-	}, func() error { return nil }, nil
+func makeNetlinkSocketDestroyer(tb testing.TB, f SocketFilter) SocketDestroyer {
+	return &NetlinkSocketDestroyer{Filter: f}
 }
 
-type bpfDestroyer struct{}
+func makeBPFSocketDestroyer(pinPath string) SocketDestroyerBuilder {
+	return func(tb testing.TB, f SocketFilter) SocketDestroyer {
+		prog, err := loader.LoadSockTerm(loader.SockParams{
+			IP:       f.DestIp,
+			Family:   f.Family,
+			Port:     f.DestPort,
+			Protocol: f.Protocol,
+		}, &ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: pinPath},
+		})
+		require.NoError(tb, err)
+		tb.Cleanup(func() {
+			prog.Close()
+		})
 
-func (d bpfDestroyer) Destroy(filter SocketFilter) (func() error, func() error, error) {
-	return DestroyBPF(filter)
+		return &BPFSocketDestroyer{Prog: prog}
+	}
 }
 
 func TestSocketDestroyers(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	pinPath := testutils.TempBPFFS(t)
+
+	sockRevNat4Map := bpf.NewMap(lbmap.SockRevNat4MapName,
+		ebpf.LRUHash,
+		&lbmap.SockRevNat4Key{},
+		&lbmap.SockRevNat4Value{},
+		lbmap.MaxSockRevNat4MapEntries,
+		0,
+	).WithPinPath(filepath.Join(pinPath, lbmap.SockRevNat6MapName))
+	require.NoError(t, sockRevNat4Map.OpenOrCreate())
+	sockRevNat6Map := bpf.NewMap(lbmap.SockRevNat6MapName,
+		ebpf.LRUHash,
+		&lbmap.SockRevNat6Key{},
+		&lbmap.SockRevNat6Value{},
+		lbmap.MaxSockRevNat6MapEntries,
+		0,
+	).WithPinPath(filepath.Join(pinPath, lbmap.SockRevNat6MapName))
+	require.NoError(t, sockRevNat6Map.OpenOrCreate())
+
+	var socketDestroyers = map[string]SocketDestroyerBuilder{
+		"netlink": makeNetlinkSocketDestroyer,
+		"bpf":     makeBPFSocketDestroyer(pinPath),
+	}
 
 	origPath := loader.BPFSockTermPath
 	loader.BPFSockTermPath = findInPath(t, bpfSockTerm)
 	t.Cleanup(func() {
 		loader.BPFSockTermPath = origPath
 	})
-	socketDestroyers := map[string]SocketDestroyer{
-		"netlink": &netlinkDestroyer{},
-		"bpf":     &bpfDestroyer{},
-	}
+
 	servers := map[string]string{
 		"127.0.0.1:8888": "udp",
 		"[::1]:8888":     "udp6",
@@ -61,7 +96,7 @@ func TestSocketDestroyers(t *testing.T) {
 	}{
 		"close 127.0.0.1:8888": {
 			filter: SocketFilter{
-				DestIp:   net.IPv4(127, 0, 0, 1),
+				DestIp:   net.IP{127, 0, 0, 1},
 				DestPort: 8888,
 				Family:   unix.AF_INET,
 				Protocol: unix.IPPROTO_UDP,
@@ -83,12 +118,14 @@ func TestSocketDestroyers(t *testing.T) {
 		},
 	}
 
-	for dName, d := range socketDestroyers {
+	for dName, dCreate := range socketDestroyers {
 		t.Run(dName, func(t *testing.T) {
 			for name, tc := range testCases {
 				t.Run(name, func(t *testing.T) {
 					ns := netns.NewNetNS(t)
 					defer ns.Close()
+					defer sockRevNat4Map.DeleteAll()
+					defer sockRevNat6Map.DeleteAll()
 
 					if err := ns.Do(func() error {
 						conns := make(map[string]net.Conn)
@@ -103,11 +140,11 @@ func TestSocketDestroyers(t *testing.T) {
 						}
 
 						for addr, network := range servers {
-							server, err := startServer(t, network, addr)
-							if err != nil {
-								return fmt.Errorf("starting server (%s): %w", addr, err)
-							}
+							udpAddr, err := net.ResolveUDPAddr(network, addr)
+							require.NoError(t, err)
 
+							server, err := net.ListenUDP(network, udpAddr)
+							require.NoError(t, err)
 							defer server.Close()
 
 							conn, err := net.Dial(network, addr)
@@ -117,25 +154,52 @@ func TestSocketDestroyers(t *testing.T) {
 
 							defer conn.Close()
 
+							rawConn, err := conn.(*net.UDPConn).SyscallConn()
+							if err != nil {
+								return fmt.Errorf("getting raw conn: %w", err)
+							}
+
+							var cookie uint64
+							rawConn.Control(func(fd uintptr) {
+								cookie, err = unix.GetsockoptUint64(int(fd), unix.SOL_SOCKET, unix.SO_COOKIE)
+							})
+							if err != nil {
+								return fmt.Errorf("getting socket cookie: %w", err)
+							}
+
+							var key bpf.MapKey
+							var value bpf.MapValue
+							var sockRevMap *bpf.Map
+
+							switch network {
+							case "udp":
+								key = lbmap.NewSockRevNat4Key(cookie, udpAddr.IP, uint16(udpAddr.Port))
+								value = &lbmap.SockRevNat4Value{}
+								sockRevMap = sockRevNat4Map
+							case "udp6":
+								key = lbmap.NewSockRevNat6Key(cookie, udpAddr.IP, uint16(udpAddr.Port))
+								value = &lbmap.SockRevNat6Value{}
+								sockRevMap = sockRevNat6Map
+							default:
+								t.Fatalf("unknown network: %s", network)
+							}
+							require.NoError(t, sockRevMap.Update(key, value))
+							m := map[string][]string{}
+							require.NoError(t, sockRevMap.Dump(m))
+							t.Logf("map contains %v", m)
+
 							conns[addr] = conn
 						}
 
-						do, done, err := d.Destroy(tc.filter)
-						if err != nil {
-							return fmt.Errorf("expected d.Destroy() to succeed, returned %w", err)
-						}
-
-						defer done()
-
-						if err := do(); err != nil {
-							return fmt.Errorf("doing destroy: %w", err)
-						}
+						sd := dCreate(t, tc.filter)
+						require.NoError(t, sd.Destroy())
 
 						closed := make(map[string]bool)
 						for addr, conn := range conns {
 							var b [8]byte
 							_, err := conn.Write(b[:])
 							if err != nil {
+								t.Logf("Socket error: %v", err)
 								closed[addr] = true
 								delete(conns, addr)
 							}
@@ -163,7 +227,7 @@ func TestSocketDestroyers(t *testing.T) {
 	}
 }
 
-func findInPath(t *testing.T, file string) string {
+func findInPath(t testing.TB, file string) string {
 	t.Helper()
 
 	// This logic adapted from os/exec.LookPath except for the parts that
@@ -192,7 +256,7 @@ func findInPath(t *testing.T, file string) string {
 	return ""
 }
 
-func startServer(t *testing.T, network string, addr string) (net.Conn, error) {
+func startServer(t testing.TB, network string, addr string) (net.Conn, error) {
 	udpAddr, err := net.ResolveUDPAddr(network, addr)
 	if err != nil {
 		return nil, fmt.Errorf("resolving address (%s): %w", network, err)
@@ -204,6 +268,66 @@ func startServer(t *testing.T, network string, addr string) (net.Conn, error) {
 	}
 
 	return conn, nil
+}
+
+func BenchmarkDestroyers(b *testing.B) {
+	pinPath := testutils.TempBPFFS(b)
+	sockRevNat4Map := bpf.NewMap(lbmap.SockRevNat4MapName,
+		ebpf.LRUHash,
+		&lbmap.SockRevNat4Key{},
+		&lbmap.SockRevNat4Value{},
+		lbmap.MaxSockRevNat4MapEntries,
+		0,
+	).WithPinPath(pinPath)
+	require.NoError(b, sockRevNat4Map.OpenOrCreate())
+	sockRevNat6Map := bpf.NewMap(lbmap.SockRevNat6MapName,
+		ebpf.LRUHash,
+		&lbmap.SockRevNat6Key{},
+		&lbmap.SockRevNat6Value{},
+		lbmap.MaxSockRevNat6MapEntries,
+		0,
+	).WithPinPath(pinPath)
+	require.NoError(b, sockRevNat6Map.OpenOrCreate())
+
+	var socketDestroyers = map[string]SocketDestroyerBuilder{
+		"netlink": makeNetlinkSocketDestroyer,
+		"bpf":     makeBPFSocketDestroyer(pinPath),
+	}
+
+	origPath := loader.BPFSockTermPath
+	loader.BPFSockTermPath = findInPath(b, bpfSockTerm)
+	b.Cleanup(func() {
+		loader.BPFSockTermPath = origPath
+	})
+
+	for name, create := range socketDestroyers {
+		b.Run(name, func(b *testing.B) {
+			addr := "127.0.0.1:8888"
+			server, err := startServer(b, "udp", addr)
+			if err != nil {
+				b.Fatalf("starting server: %v", err)
+			}
+			defer server.Close()
+
+			for i := 0; i < b.N; i++ {
+				(func() {
+					conn, err := net.Dial("udp", addr)
+					if err != nil {
+						b.Fatalf("connecting: %v", err)
+					}
+					defer conn.Close()
+
+					sd := create(b, SocketFilter{
+						DestIp:   net.IPv4(127, 0, 0, 1),
+						DestPort: 8888,
+						Family:   unix.AF_INET,
+						Protocol: unix.IPPROTO_UDP,
+					})
+					require.NoError(b, sd.Destroy())
+				})()
+			}
+		})
+	}
 }
 
 func TestSocketReqSerialize(t *testing.T) {

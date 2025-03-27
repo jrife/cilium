@@ -138,12 +138,12 @@ integration-tests: start-kvstores ## Run Go tests including ones that are marked
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
 
-bench: start-kvstores ## Run benchmarks for Cilium integration-tests in the repository.
-	$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
+bench: start-kvstores bpf-static ## Run benchmarks for Cilium integration-tests in the repository.
+	PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
 	$(MAKE) stop-kvstores
 
-bench-privileged: ## Run benchmarks for privileged tests.
-	PRIVILEGED_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
+bench-privileged: bpf-static ## Run benchmarks for privileged tests.
+	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
 
 clean-tags: ## Remove all the tags files from the repository.
 	@$(ECHO_CLEAN) tags

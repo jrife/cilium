@@ -17,6 +17,7 @@ import (
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -38,7 +39,8 @@ var (
 )
 
 type SocketDestroyer interface {
-	Destroy(filter SocketFilter) (func() error, func() error, error)
+	Destroy() error
+	Close() error
 }
 
 type SocketFilter struct {
@@ -52,14 +54,18 @@ type SocketFilter struct {
 
 type DestroySocketCB func(id netlink.SocketID) bool
 
+type NetlinkSocketDestroyer struct {
+	Filter SocketFilter
+}
+
 // DestroyNetlink destroys sockets matching the passed filter parameters using
 // the sock_diag netlink framework.
 //
 // Supported families in the filter: syscall.AF_INET, syscall.AF_INET6
 // Supported protocols in the filter: unix.IPPROTO_UDP
-func DestroyNetlink(filter SocketFilter) error {
-	family := filter.Family
-	protocol := filter.Protocol
+func (d *NetlinkSocketDestroyer) Destroy() error {
+	family := d.Filter.Family
+	protocol := d.Filter.Protocol
 
 	if family != syscall.AF_INET && family != syscall.AF_INET6 {
 		return fmt.Errorf("unsupported family for socket destroy: %d", family)
@@ -73,14 +79,14 @@ func DestroyNetlink(filter SocketFilter) error {
 	case unix.IPPROTO_UDP:
 		err := filterAndDestroyUDPSockets(family, func(sock netlink.SocketID, err error) {
 			if err != nil {
-				errs = errors.Join(errs, fmt.Errorf("UDP socket with filter [%v]: %w", filter, err))
+				errs = errors.Join(errs, fmt.Errorf("UDP socket with filter [%v]: %w", d.Filter, err))
 				failed++
 				return
 			}
-			if filter.MatchSocket(sock) {
+			if d.Filter.MatchSocket(sock) {
 				log.Infof("socket %v", sock)
 				if err := destroySocket(sock, family, unix.IPPROTO_UDP); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", filter, err))
+					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", d.Filter, err))
 					failed++
 					return
 				}
@@ -89,7 +95,7 @@ func DestroyNetlink(filter SocketFilter) error {
 			}
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get sockets with filter %v: %w", filter, err)
+			return fmt.Errorf("failed to get sockets with filter %v: %w", d.Filter, err)
 		}
 
 	default:
@@ -97,7 +103,7 @@ func DestroyNetlink(filter SocketFilter) error {
 	}
 	if success > 0 || failed > 0 || errs != nil {
 		log.WithFields(logrus.Fields{
-			"filter":  filter,
+			"filter":  d.Filter,
 			"success": success,
 			"failed":  failed,
 			"errors":  errs,
@@ -107,68 +113,87 @@ func DestroyNetlink(filter SocketFilter) error {
 	return nil
 }
 
+func (d *NetlinkSocketDestroyer) Close() error {
+	return nil
+}
+
+type BPFSocketDestroyer struct {
+	Filter SocketFilter
+	Prog   *ebpf.Program
+}
+
 // DestroyBPF loads an instance of cil_sock_udp_destroy with the given config
 // and returns do and done. do creates a new socket iterator that iterates
 // through and destroys all matching sockets in the current network namespace.
 // done releases the program instance.
-func DestroyBPF(filter SocketFilter) (do func() error, done func() error, err error) {
-	prog, err := loader.LoadSockTerm(loader.SockParams{
-		IP:       filter.DestIp,
-		Family:   filter.Family,
-		Port:     filter.DestPort,
-		Protocol: filter.Protocol,
-	})
-	if err != nil {
-		return nil, nil, err
+func (sd *BPFSocketDestroyer) Destroy() error {
+	if sd.Prog == nil {
+		prog, err := loader.LoadSockTerm(loader.SockParams{
+			IP:       sd.Filter.DestIp,
+			Family:   sd.Filter.Family,
+			Port:     sd.Filter.DestPort,
+			Protocol: sd.Filter.Protocol,
+		}, nil)
+		if err != nil {
+			return err
+		}
+		sd.Prog = prog
 	}
 
-	return func() error {
-		iter, err := link.AttachIter(link.IterOptions{
-			Program: prog,
-		})
-		if err != nil {
-			return fmt.Errorf("creating iterator: %w", err)
+	iter, err := link.AttachIter(link.IterOptions{
+		Program: sd.Prog,
+	})
+	if err != nil {
+		return fmt.Errorf("creating iterator: %w", err)
+	}
+
+	defer iter.Close()
+
+	rc, err := iter.Open()
+	if err != nil {
+		return fmt.Errorf("creating reader: %w", err)
+	}
+
+	defer rc.Close()
+
+	var cookie [8]byte
+	var n int
+	count := 0
+	for err == nil {
+		n, err = rc.Read(cookie[:])
+		if err != nil || n == 0 {
+			continue
 		}
 
-		defer iter.Close()
-
-		rc, err := iter.Open()
-		if err != nil {
-			return fmt.Errorf("creating reader: %w", err)
+		if n != len(cookie) {
+			log.Warnf("Expected to read %d bytes, got %d", len(cookie), n)
+			continue
 		}
 
-		defer rc.Close()
+		log.Debugf("Destroyed socket with cookie %v", native.Uint64(cookie[:]))
+		count++
+	}
 
-		var cookie [8]byte
-		var n int
-		count := 0
-		for err == nil {
-			n, err = rc.Read(cookie[:])
-			if err != nil || n == 0 {
-				continue
-			}
+	if err != io.EOF {
+		return fmt.Errorf("reading: %w", err)
+	}
 
-			if n != len(cookie) {
-				log.Warnf("Expected to read %d bytes, got %d", len(cookie), n)
-				continue
-			}
-
-			log.Debugf("Destroyed socket with cookie %v", native.Uint64(cookie[:]))
-			count++
-		}
-
+	if count > 0 {
 		log.WithFields(logrus.Fields{
-			"filter":    filter,
+			"filter":    sd.Filter,
 			"destroyed": count,
-			"error":     err,
 		}).Info("Forcefully terminated sockets")
+	}
 
-		if err != io.EOF {
-			return fmt.Errorf("reading: %w", err)
-		}
+	return nil
+}
 
-		return nil
-	}, prog.Close, nil
+func (sd *BPFSocketDestroyer) Close() error {
+	if sd.Prog != nil {
+		return sd.Prog.Close()
+	}
+
+	return nil
 }
 
 func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
