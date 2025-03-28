@@ -11,12 +11,6 @@
 #include "lib/common.h"
 #include "lib/sock.h"
 
-DECLARE_CONFIG(__u8, address_family, "IPv4 or IPv6")
-DECLARE_CONFIG(__u32, dest_ipv4, "Destination IPv4 address")
-DECLARE_CONFIG(__u64, dest_ipv6_1, "Destination IPv6 address - first 64 bits")
-DECLARE_CONFIG(__u64, dest_ipv6_2, "Destination IPv6 address - second 64 bits")
-DECLARE_CONFIG(__u16, dest_port, "Destination port")
-
 /* Stub out types that would normally be found in vmlinux.h to satisfy BTF type
  * checks
  */
@@ -37,26 +31,25 @@ static int BPF_FUNC(seq_write, struct seq_file *m, const void *data,
 #endif
 
 static __always_inline
-bool matches_v4(__sock_cookie cookie)
+bool matches_v4(struct sock_term_filter *filter, __sock_cookie cookie)
 {
 	struct ipv4_revnat_tuple key = {};
 
-	key.address = CONFIG(dest_ipv4),
-	key.port    = CONFIG(dest_port),
+	key.address = filter->address.addr4;
+	key.port    = filter->port;
 	key.cookie  = cookie;
 
 	return map_lookup_elem(&cilium_lb4_reverse_sk, &key) != NULL;
 }
 
 static __always_inline
-bool matches_v6(__sock_cookie cookie)
+bool matches_v6(struct sock_term_filter *filter, __sock_cookie cookie)
 {
 	struct ipv6_revnat_tuple key = {};
 
-	key.address.d1 = CONFIG(dest_ipv6_1);
-	key.address.d2 = CONFIG(dest_ipv6_2);
-	key.port       = CONFIG(dest_port);
-	key.cookie     = cookie;
+	key.address = filter->address.addr6;
+	key.port    = filter->port;
+	key.cookie  = cookie;
 
 	return map_lookup_elem(&cilium_lb6_reverse_sk, &key) != NULL;
 }
@@ -64,20 +57,26 @@ bool matches_v6(__sock_cookie cookie)
 __section("iter/udp")
 int cil_sock_udp_destroy(struct bpf_iter__udp *ctx)
 {
+	struct sock_term_filter* filter;
 	void *sk = ctx->udp_sk;
 	bool matches = false;
 	__sock_cookie cookie;
+	__u32 zero = 0;
 
 	if (!sk)
 		return 0;
 
+	filter = map_lookup_elem(&cilium_sock_term_filter, &zero);
+	if (!filter)
+		return 0;
+
 	cookie = get_socket_cookie(sk);
-	switch (CONFIG(address_family)) {
+	switch (filter->address_family) {
 	case AF_INET:
-		matches = matches_v4(cookie);
+		matches = matches_v4(filter, cookie);
 		break;
 	case AF_INET6:
-		matches = matches_v6(cookie);
+		matches = matches_v6(filter, cookie);
 		break;
 	}
 

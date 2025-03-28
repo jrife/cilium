@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/filter"
 )
 
 const (
@@ -39,8 +41,7 @@ var (
 )
 
 type SocketDestroyer interface {
-	Destroy() error
-	Close() error
+	Destroy(SocketFilter) error
 }
 
 type SocketFilter struct {
@@ -55,7 +56,6 @@ type SocketFilter struct {
 type DestroySocketCB func(id netlink.SocketID) bool
 
 type NetlinkSocketDestroyer struct {
-	Filter SocketFilter
 }
 
 // DestroyNetlink destroys sockets matching the passed filter parameters using
@@ -63,9 +63,9 @@ type NetlinkSocketDestroyer struct {
 //
 // Supported families in the filter: syscall.AF_INET, syscall.AF_INET6
 // Supported protocols in the filter: unix.IPPROTO_UDP
-func (d *NetlinkSocketDestroyer) Destroy() error {
-	family := d.Filter.Family
-	protocol := d.Filter.Protocol
+func (d *NetlinkSocketDestroyer) Destroy(filter SocketFilter) error {
+	family := filter.Family
+	protocol := filter.Protocol
 
 	if family != syscall.AF_INET && family != syscall.AF_INET6 {
 		return fmt.Errorf("unsupported family for socket destroy: %d", family)
@@ -79,14 +79,14 @@ func (d *NetlinkSocketDestroyer) Destroy() error {
 	case unix.IPPROTO_UDP:
 		err := filterAndDestroyUDPSockets(family, func(sock netlink.SocketID, err error) {
 			if err != nil {
-				errs = errors.Join(errs, fmt.Errorf("UDP socket with filter [%v]: %w", d.Filter, err))
+				errs = errors.Join(errs, fmt.Errorf("UDP socket with filter [%v]: %w", filter, err))
 				failed++
 				return
 			}
-			if d.Filter.MatchSocket(sock) {
+			if filter.MatchSocket(sock) {
 				log.Infof("socket %v", sock)
 				if err := destroySocket(sock, family, unix.IPPROTO_UDP); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", d.Filter, err))
+					errs = errors.Join(errs, fmt.Errorf("destroying UDP socket with filter [%v]: %w", filter, err))
 					failed++
 					return
 				}
@@ -95,7 +95,7 @@ func (d *NetlinkSocketDestroyer) Destroy() error {
 			}
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get sockets with filter %v: %w", d.Filter, err)
+			return fmt.Errorf("failed to get sockets with filter %v: %w", filter, err)
 		}
 
 	default:
@@ -103,7 +103,7 @@ func (d *NetlinkSocketDestroyer) Destroy() error {
 	}
 	if success > 0 || failed > 0 || errs != nil {
 		log.WithFields(logrus.Fields{
-			"filter":  d.Filter,
+			"filter":  filter,
 			"success": success,
 			"failed":  failed,
 			"errors":  errs,
@@ -118,26 +118,29 @@ func (d *NetlinkSocketDestroyer) Close() error {
 }
 
 type BPFSocketDestroyer struct {
-	Filter SocketFilter
-	Prog   *ebpf.Program
+	destroyMu      sync.Mutex
+	Prog           *ebpf.Program
+	SockTermFilter *filter.SockTermFilterMap
 }
 
 // DestroyBPF loads an instance of cil_sock_udp_destroy with the given config
 // and returns do and done. do creates a new socket iterator that iterates
 // through and destroys all matching sockets in the current network namespace.
 // done releases the program instance.
-func (sd *BPFSocketDestroyer) Destroy() error {
+func (sd *BPFSocketDestroyer) Destroy(f SocketFilter) error {
+	sd.destroyMu.Lock()
+	defer sd.destroyMu.Unlock()
+
 	if sd.Prog == nil {
-		prog, err := loader.LoadSockTerm(loader.SockParams{
-			IP:       sd.Filter.DestIp,
-			Family:   sd.Filter.Family,
-			Port:     sd.Filter.DestPort,
-			Protocol: sd.Filter.Protocol,
-		}, nil)
+		prog, err := loader.LoadSockTerm("")
 		if err != nil {
 			return err
 		}
 		sd.Prog = prog
+	}
+
+	if err := sd.SockTermFilter.Set(f.Family, f.DestIp, f.DestPort); err != nil {
+		return fmt.Errorf("configuring filter: %w", err)
 	}
 
 	iter, err := link.AttachIter(link.IterOptions{
@@ -180,7 +183,7 @@ func (sd *BPFSocketDestroyer) Destroy() error {
 
 	if count > 0 {
 		log.WithFields(logrus.Fields{
-			"filter":    sd.Filter,
+			"filter":    f,
 			"destroyed": count,
 		}).Info("Forcefully terminated sockets")
 	}

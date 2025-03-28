@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/filter"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -641,6 +642,11 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 
 	toOpen := []*bpf.Map{}
 	toDelete := []*bpf.Map{}
+	if sockMaps {
+		if err := filter.OpenOrCreateSockTermFilterMap(); err != nil {
+			return nil
+		}
+	}
 	if ipv6 {
 		toOpen = append(toOpen, lbmap.Service6MapV2, lbmap.Backend6MapV3, lbmap.RevNat6Map)
 		if !restore {

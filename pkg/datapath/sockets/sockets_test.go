@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/maps/filter"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -27,34 +28,29 @@ const (
 	bpfSockTerm = "bpf_sock_term.o"
 )
 
-type SocketDestroyerBuilder func(tb testing.TB, f SocketFilter) SocketDestroyer
+type SocketDestroyerBuilder func(tb testing.TB) SocketDestroyer
 
-func makeNetlinkSocketDestroyer(tb testing.TB, f SocketFilter) SocketDestroyer {
-	return &NetlinkSocketDestroyer{Filter: f}
+func makeNetlinkSocketDestroyer(tb testing.TB) SocketDestroyer {
+	return &NetlinkSocketDestroyer{}
 }
 
-func makeBPFSocketDestroyer(pinPath string) SocketDestroyerBuilder {
-	return func(tb testing.TB, f SocketFilter) SocketDestroyer {
-		prog, err := loader.LoadSockTerm(loader.SockParams{
-			IP:       f.DestIp,
-			Family:   f.Family,
-			Port:     f.DestPort,
-			Protocol: f.Protocol,
-		}, &ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: pinPath},
-		})
-		require.NoError(tb, err)
-		tb.Cleanup(func() {
-			prog.Close()
-		})
-
-		return &BPFSocketDestroyer{Prog: prog}
+func makeBPFSocketDestroyer(prog *ebpf.Program, sockTermFilter *filter.SockTermFilterMap) SocketDestroyerBuilder {
+	return func(tb testing.TB) SocketDestroyer {
+		return &BPFSocketDestroyer{
+			Prog:           prog,
+			SockTermFilter: sockTermFilter,
+		}
 	}
 }
 
 func TestSocketDestroyers(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	pinPath := testutils.TempBPFFS(t)
+	origPath := loader.BPFSockTermPath
+	loader.BPFSockTermPath = findInPath(t, bpfSockTerm)
+	t.Cleanup(func() {
+		loader.BPFSockTermPath = origPath
+	})
 
 	sockRevNat4Map := bpf.NewMap(lbmap.SockRevNat4MapName,
 		ebpf.LRUHash,
@@ -72,17 +68,19 @@ func TestSocketDestroyers(t *testing.T) {
 		0,
 	).WithPinPath(filepath.Join(pinPath, lbmap.SockRevNat6MapName))
 	require.NoError(t, sockRevNat6Map.OpenOrCreate())
+	sockTermFilter := filter.NewSockTermFilterMap()
+	sockTermFilter.Map.WithPinPath(filepath.Join(pinPath, filter.SockTermFilterMapName))
+	require.NoError(t, sockTermFilter.OpenOrCreate())
+	prog, err := loader.LoadSockTerm(pinPath)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		prog.Close()
+	})
 
 	var socketDestroyers = map[string]SocketDestroyerBuilder{
 		"netlink": makeNetlinkSocketDestroyer,
-		"bpf":     makeBPFSocketDestroyer(pinPath),
+		"bpf":     makeBPFSocketDestroyer(prog, sockTermFilter),
 	}
-
-	origPath := loader.BPFSockTermPath
-	loader.BPFSockTermPath = findInPath(t, bpfSockTerm)
-	t.Cleanup(func() {
-		loader.BPFSockTermPath = origPath
-	})
 
 	servers := map[string]string{
 		"127.0.0.1:8888": "udp",
@@ -191,8 +189,8 @@ func TestSocketDestroyers(t *testing.T) {
 							conns[addr] = conn
 						}
 
-						sd := dCreate(t, tc.filter)
-						require.NoError(t, sd.Destroy())
+						sd := dCreate(t)
+						require.NoError(t, sd.Destroy(tc.filter))
 
 						closed := make(map[string]bool)
 						for addr, conn := range conns {
@@ -272,6 +270,11 @@ func startServer(t testing.TB, network string, addr string) (net.Conn, error) {
 
 func BenchmarkDestroyers(b *testing.B) {
 	pinPath := testutils.TempBPFFS(b)
+	origPath := loader.BPFSockTermPath
+	loader.BPFSockTermPath = findInPath(b, bpfSockTerm)
+	b.Cleanup(func() {
+		loader.BPFSockTermPath = origPath
+	})
 	sockRevNat4Map := bpf.NewMap(lbmap.SockRevNat4MapName,
 		ebpf.LRUHash,
 		&lbmap.SockRevNat4Key{},
@@ -288,17 +291,19 @@ func BenchmarkDestroyers(b *testing.B) {
 		0,
 	).WithPinPath(pinPath)
 	require.NoError(b, sockRevNat6Map.OpenOrCreate())
+	sockTermFilter := filter.NewSockTermFilterMap()
+	sockTermFilter.Map.WithPinPath(filepath.Join(pinPath, filter.SockTermFilterMapName))
+	require.NoError(b, sockTermFilter.OpenOrCreate())
+	prog, err := loader.LoadSockTerm(pinPath)
+	require.NoError(b, err)
+	b.Cleanup(func() {
+		prog.Close()
+	})
 
 	var socketDestroyers = map[string]SocketDestroyerBuilder{
 		"netlink": makeNetlinkSocketDestroyer,
-		"bpf":     makeBPFSocketDestroyer(pinPath),
+		"bpf":     makeBPFSocketDestroyer(prog, sockTermFilter),
 	}
-
-	origPath := loader.BPFSockTermPath
-	loader.BPFSockTermPath = findInPath(b, bpfSockTerm)
-	b.Cleanup(func() {
-		loader.BPFSockTermPath = origPath
-	})
 
 	for name, create := range socketDestroyers {
 		b.Run(name, func(b *testing.B) {
@@ -317,13 +322,13 @@ func BenchmarkDestroyers(b *testing.B) {
 					}
 					defer conn.Close()
 
-					sd := create(b, SocketFilter{
+					sd := create(b)
+					require.NoError(b, sd.Destroy(SocketFilter{
 						DestIp:   net.IPv4(127, 0, 0, 1),
 						DestPort: 8888,
 						Family:   unix.AF_INET,
 						Protocol: unix.IPPROTO_UDP,
-					})
-					require.NoError(b, sd.Destroy())
+					}))
 				})()
 			}
 		})

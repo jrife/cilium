@@ -4,13 +4,16 @@
 #include "common.h"
 #include "destroy_sock_socket_lb.h"
 
-ASSIGN_CONFIG(__u8, address_family, AF_INET)
-ASSIGN_CONFIG(__u32, dest_ipv4, match_addr4)
-ASSIGN_CONFIG(__u16, dest_port, match_port)
-
 CHECK("xdp", "sock4_terminate")
 int test_sock4_terminate(__maybe_unused struct xdp_md *ctx)
 {
+	struct sock_term_filter filter = {
+		.address = {
+			.addr4 = match_addr4,
+		},
+		.address_family = AF_INET,
+		.port = match_port,
+	};
 	struct bpf_iter__udp iter_ctx;
 	struct bpf_iter_meta meta;
 	struct seq_file seq;
@@ -21,7 +24,7 @@ int test_sock4_terminate(__maybe_unused struct xdp_md *ctx)
 	meta.seq = &seq;
 
 	test_init();
-	assert(!setup());
+	assert(!setup(&filter));
 
 	reset(no_match_cookie4);
 	cil_sock_udp_destroy(&iter_ctx);
