@@ -5,6 +5,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/filter"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -64,19 +66,13 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 		return s.lbmap.ExistsSockRevNat(cookie, id.Destination, id.DestinationPort)
 	}
 
-	destroy, done, err := s.backendConnectionHandler.Destroy(sockets.SocketFilter{
+	err := s.backendConnectionHandler.Destroy(sockets.SocketFilter{
 		Family:    family,
 		Protocol:  protocol,
 		DestIp:    ip,
 		DestPort:  l4Addr.Port,
 		DestroyCB: checkSockInRevNat,
 	})
-	if err != nil {
-		log.WithError(err).Error("error while preparing socket destroyer")
-		return
-	}
-	defer done()
-	err = destroy()
 	if err != nil {
 		if errors.Is(err, unix.EOPNOTSUPP) {
 			opSupported = false
@@ -112,7 +108,16 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 				}).Debug("Error opening netns")
 				continue
 			}
-			err = ns.Do(destroy)
+			err = ns.Do(func() error {
+				return s.backendConnectionHandler.Destroy(sockets.SocketFilter{
+					Family:    family,
+					Protocol:  protocol,
+					DestIp:    ip,
+					DestPort:  l4Addr.Port,
+					DestroyCB: checkSockInRevNat,
+				})
+			})
+
 			ns.Close()
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
@@ -129,25 +134,25 @@ func (s *Service) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
 
 // backendConnectionHandler is added for dependency injection in tests.
 type backendConnectionHandler struct {
+	sockets.SocketDestroyer
 	useNetlink bool
 }
 
-func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) (func() error, func() error, error) {
-	doneNetlink := func() error { return nil }
-	destroyNetlink := func() error {
-		return sockets.DestroyNetlink(filter)
+func newBackendConnectionHandler(sockTermFilter *filter.SockTermFilterMap) *backendConnectionHandler {
+	return &backendConnectionHandler{
+		SocketDestroyer: &sockets.BPFSocketDestroyer{
+			SockTermFilter: sockTermFilter,
+		},
 	}
+}
 
-	if h.useNetlink {
-		return destroyNetlink, doneNetlink, nil
-	}
-
-	destroyBPF, doneBPF, err := sockets.DestroyBPF(filter)
-	if err != nil {
-		log.WithError(err).Error("failed to prepare BPF socket destroyer, falling back to sock_diag")
+func (h backendConnectionHandler) Destroy(filter sockets.SocketFilter) error {
+	err := h.SocketDestroyer.Destroy(filter)
+	if err != nil && !h.useNetlink {
 		h.useNetlink = true
-		return destroyNetlink, doneNetlink, nil
+		h.SocketDestroyer = &sockets.NetlinkSocketDestroyer{}
+		return h.Destroy(filter)
 	}
 
-	return destroyBPF, doneBPF, nil
+	return err
 }

@@ -8,11 +8,11 @@ import (
 	"net"
 	"syscall"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/hive/cell"
 )
 
 const (
@@ -28,6 +28,29 @@ var (
 	SockTermFilter *SockTermFilterMap
 
 	key = index(0)
+)
+
+// Cell provides the ActiveConnectionTrackingMap which contains information about opened
+// and closed connection to each service-zone pair.
+var Cell = cell.Module(
+	"sock-term-filter",
+	"eBPF map containing the filter for socket termination",
+
+	cell.Provide(func(lifecycle cell.Lifecycle) *SockTermFilterMap {
+		m := NewSockTermFilterMap()
+
+		lifecycle.Append(cell.Hook{
+			OnStart: func(context cell.HookContext) error {
+				return m.OpenOrCreate()
+			},
+			OnStop: func(context cell.HookContext) error {
+				// We don't currently care for cleaning up.
+				return nil
+			},
+		})
+
+		return m
+	}),
 )
 
 type index uint32

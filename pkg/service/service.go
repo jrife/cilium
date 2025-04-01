@@ -302,7 +302,7 @@ type Service struct {
 }
 
 // newService creates a new instance of the service handler.
-func newService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool) *Service {
+func newService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, backendDiscoveryHandler datapathTypes.NodeNeighbors, healthCheckers []HealthChecker, k8sControlplaneEnabled bool, sockTermFilter *filter.SockTermFilterMap) *Service {
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New()
@@ -318,7 +318,7 @@ func newService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, back
 		healthCheckChan:          make(chan any),
 		lbmap:                    lbmap,
 		l7lbSvcs:                 map[lb.ServiceName]*L7LBInfo{},
-		backendConnectionHandler: backendConnectionHandler{},
+		backendConnectionHandler: newBackendConnectionHandler(sockTermFilter),
 		backendDiscovery:         backendDiscoveryHandler,
 		healthCheckers:           healthCheckers,
 		k8sControlplaneEnabled:   k8sControlplaneEnabled,
@@ -642,11 +642,6 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 
 	toOpen := []*bpf.Map{}
 	toDelete := []*bpf.Map{}
-	if sockMaps {
-		if err := filter.OpenOrCreateSockTermFilterMap(); err != nil {
-			return nil
-		}
-	}
 	if ipv6 {
 		toOpen = append(toOpen, lbmap.Service6MapV2, lbmap.Backend6MapV3, lbmap.RevNat6Map)
 		if !restore {

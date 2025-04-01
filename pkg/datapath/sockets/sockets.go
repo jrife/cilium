@@ -41,7 +41,7 @@ var (
 )
 
 type SocketDestroyer interface {
-	Destroy(SocketFilter) error
+	Destroy(filter SocketFilter) error
 }
 
 type SocketFilter struct {
@@ -110,10 +110,6 @@ func (d *NetlinkSocketDestroyer) Destroy(filter SocketFilter) error {
 		}).Info("Forcefully terminated sockets")
 	}
 
-	return nil
-}
-
-func (d *NetlinkSocketDestroyer) Close() error {
 	return nil
 }
 
@@ -186,14 +182,6 @@ func (sd *BPFSocketDestroyer) Destroy(f SocketFilter) error {
 			"filter":    f,
 			"destroyed": count,
 		}).Info("Forcefully terminated sockets")
-	}
-
-	return nil
-}
-
-func (sd *BPFSocketDestroyer) Close() error {
-	if sd.Prog != nil {
-		return sd.Prog.Close()
 	}
 
 	return nil
