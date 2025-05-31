@@ -599,6 +599,10 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 func reloadEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
+	if err := instrumentExitPoints(logger, spec); err != nil {
+		return fmt.Errorf("instrumenting endpoint program exits: %w", err)
+	}
+
 	co, renames := endpointRewrites(ep, lnc)
 
 	var obj lxcObjects

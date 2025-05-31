@@ -5,7 +5,7 @@ include ../Makefile.defs
 
 SUBDIRS = custom
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
-BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_wireguard.o bpf_xdp.o $(BPF_SIMPLE)
+BPF = bpf_lxc.o bpf_exits.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_wireguard.o bpf_xdp.o $(BPF_SIMPLE)
 
 KERNEL ?= netnext
 
@@ -189,6 +189,7 @@ testdata:
 
 generate: $(BPF)
 	$(GO) generate ../pkg/datapath/config
+	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/bpf
 
 $(BPF_SIMPLE): %.o: %.c
 	@$(ECHO_CC)
@@ -211,6 +212,10 @@ bpf_sock.o:: bpf_sock.c $(LIB)
 	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 $(foreach OPTS,$(LB_OPTIONS),$(eval $(call PERMUTATION_template,bpf_sock.o,$(OPTS))))
+
+bpf_exits.o:: bpf_exits.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_OVERLAY_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 bpf_overlay.o:: bpf_overlay.c $(LIB)
 	@$(ECHO_CC)
