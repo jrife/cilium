@@ -1,5 +1,6 @@
 debug:
   enabled: true
+  verbose: datapath
 pprof:
   enabled: true
 prometheus:

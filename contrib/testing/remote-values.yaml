@@ -1,0 +1,43 @@
+debug:
+  enabled: true
+operator:
+  nodeSelector:
+    kubernetes.io/os: linux
+    kubernetes.io/hostname: kind-worker
+ipam:
+  mode: kubernetes
+ipv6:
+  enabled: false
+ipv4:
+  enabled: true
+livenessProbe:
+  failureThreshold: 9999
+readinessProbe:
+  failureThreshold: 9999
+startupProbe:
+  failureThreshold: 9999
+image:
+  override: "harbor.jrife.io/cilium/cilium:latest"
+  pullPolicy: Always
+operator:
+  image:
+    override: "harbor.jrife.io/cilium/operator-generic:latest"
+    pullPolicy: Always
+    suffix: ""
+# encryption:
+#   enabled: true
+#   type: wireguard
+# endpointRoutes:
+#   enabled: true
+kubeProxyReplacement: true
+routingMode: native
+ipv4NativeRoutingCIDR: 10.244.0.0/16
+enableIPv4Masquerade: true
+autoDirectNodeRoutes: false
+MTU: 9000
+socketLB:
+  enabled: true
+bpf:
+  datapathMode: netkit
+  masquerade: true
+  # hostLegacyRouting: true
