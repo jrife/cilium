@@ -9,8 +9,8 @@ import (
 	"log/slog"
 
 	"github.com/cilium/cilium/api/v1/datapathplugins"
-	"github.com/cilium/cilium/pkg/datapath/plugins/demo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/hive/cell"
 
 	"github.com/spf13/pflag"
@@ -55,26 +55,26 @@ func (c *client) Close() error {
 }
 
 func newDatapathPluginClient(logger *slog.Logger, config datapathPluginsConfig) (Client, error) {
-	// if config.DatapathPluginUnixSocket == "" {
-	// 	logger.Info("Disabling datapath plugins; no UNIX socket provided")
-	//
-	// 	return nil, nil
-	// }
-	//
-	// if !option.Config.EnableTCX {
-	// 	logger.Info("Disabling datapath plugins; TCX is not enabled")
-	//
-	// 	return nil, nil
-	// }
+	if config.DatapathPluginUnixSocket == "" {
+		logger.Info("Disabling datapath plugins; no UNIX socket provided")
+
+		return nil, nil
+	}
+
+	if !option.Config.EnableTCX {
+		logger.Info("Disabling datapath plugins; TCX is not enabled")
+
+		return nil, nil
+	}
 
 	logger.Info("Enabling datapath plugins", logfields.Path, config.DatapathPluginUnixSocket)
 
-	socketPath, err := demo.StartDemoServer(logger)
-	if err != nil {
-		return nil, fmt.Errorf("starting demo server: %w", err)
-	}
+	// socketPath, err := demo.StartDemoServer(logger)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("starting demo server: %w", err)
+	// }
 
-	conn, err := grpc.NewClient(socketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("unix://"+config.DatapathPluginUnixSocket, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("creating client: %w", err)
 	}
