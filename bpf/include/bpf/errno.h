@@ -38,6 +38,9 @@
 #ifndef ENOTCONN
 # define ENOTCONN	107
 #endif
+#ifndef ETIMEDOUT
+# define ETIMEDOUT	110
+#endif
 #ifndef ECONNREFUSED
 # define ECONNREFUSED	111
 #endif

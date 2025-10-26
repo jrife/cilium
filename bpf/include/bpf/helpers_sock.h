@@ -13,3 +13,7 @@
 static int BPF_FUNC_REMAP(sock_event_output, struct bpf_sock_addr *sock, void *map,
 			  __u64 index, const void *data, __u32 size) =
 			 (void *)BPF_FUNC_perf_event_output;
+static void *BPF_FUNC(sk_storage_get, void *map, struct bpf_sock *sk,
+		      void *value, __u64 flags);
+static long BPF_FUNC(sock_ops_cb_flags_set, struct bpf_sock_ops *bpf_sock,
+		     int argval);

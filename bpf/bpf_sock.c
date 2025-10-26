@@ -27,6 +27,14 @@
 # define HOST_NETNS_COOKIE   get_netns_cookie(NULL)
 #endif
 
+struct {
+	__uint(type, BPF_MAP_TYPE_SK_STORAGE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__type(key, int);
+	__type(value, __u32);
+} socket_backends __section_maps_btf;
+
 static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
 {
 	/* Check for 127.0.0.0/8 range, RFC3330. */
@@ -408,6 +416,12 @@ out:
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
+
+	if (is_connect &&
+	    protocol == IPPROTO_TCP &&
+	    !sk_storage_get(&socket_backends, ctx_full->sk, &backend_id,
+			    BPF_SK_STORAGE_GET_F_CREATE))
+		return -1;
 
 	ctx->user_ip4 = backend->address;
 	ctx_set_port(ctx, backend->port);
@@ -1088,6 +1102,12 @@ out:
 		return -ENOMEM;
 	}
 
+	if (is_connect &&
+	    protocol == IPPROTO_TCP &&
+	    !sk_storage_get(&socket_backends, ctx->sk, &backend_id,
+			    BPF_SK_STORAGE_GET_F_CREATE))
+		return -1;
+
 	ctx_set_v6_address(ctx, &backend->address);
 	ctx_set_port(ctx, backend->port);
 
@@ -1259,6 +1279,31 @@ int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
 	}
 #endif /* ENABLE_IPV6 */
 	return SYS_PROCEED;
+}
+
+__section("sockops")
+int cil_rto_timeout(struct bpf_sock_ops *skops)
+{
+	__u32 *backend_id;
+
+	if (!skops->sk)
+		return 1;
+
+	switch (skops->op) {
+	case BPF_SOCK_OPS_TCP_CONNECT_CB:
+		sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_RTO_CB_FLAG);
+		break;
+	case BPF_SOCK_OPS_RTO_CB:
+		backend_id = sk_storage_get(&socket_backends, skops->sk, NULL,
+					    0);
+		if (backend_id && !__lb4_lookup_backend(*backend_id)) {
+			/* Backend no longer exists, so give up. */
+			skops->reply = -ETIMEDOUT;
+			return 1;
+		}
+	}
+
+	return 0;
 }
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
