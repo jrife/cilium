@@ -123,46 +123,23 @@ bool sock_proto_enabled(__u8 proto)
 
 #ifdef ENABLE_IPV4
 
-static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
-					       const struct lb4_backend *backend,
-					       const struct lb4_key *orig_key,
-					       __u16 rev_nat_id)
+static __always_inline int sock4_update_meta(struct bpf_sock_addr *ctx,
+					     const struct lb4_backend *backend,
+					     const struct lb4_key *orig_key,
+					     __u16 rev_nat_id)
 {
-	struct ipv4_revnat_entry val = {}, *tmp;
-	struct ipv4_revnat_tuple key = {};
-	int ret = 0;
+	struct ipv4_sk_meta val = {
+		.orig_address = orig_key->address,
+		.orig_port = orig_key->dport,
+		.rev_nat_index = rev_nat_id,
+		.backend_address = backend->address,
+		.backend_port = backend->port,
+	};
 
-	/* Note that for the revnat map the protocol is not needed since the
-	 * cookie is already part of the key which is an unique identifier,
-	 * meaning across the TCP/UDP universe a socket cookie is unique.
-	 */
-	key.cookie = sock_local_cookie(ctx);
-	key.address = backend->address;
-	key.port = backend->port;
-
-	val.address = orig_key->address;
-	val.port = orig_key->dport;
-	val.rev_nat_index = rev_nat_id;
-
-	tmp = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
-	if (!tmp || memcmp(tmp, &val, sizeof(val)))
-		ret = map_update_elem(&cilium_lb4_reverse_sk, &key,
-				      &val, 0);
-	return ret;
-}
-
-static __always_inline int sock4_delete_revnat(const struct bpf_sock *ctx,
-					       struct bpf_sock *ctx_full)
-{
-    struct ipv4_revnat_tuple key = {};
-    int ret = 0;
-
-    key.cookie = get_socket_cookie(ctx_full);
-    key.address = (__u32)ctx->dst_ip4;
-    key.port = (__u16)ctx->dst_port;
-
-    ret = map_delete_elem(&cilium_lb4_reverse_sk, &key);
-    return ret;
+	if (!sk_storage_get(&cilium_lb4_sk_meta, ctx->sk, &val,
+			    BPF_SK_STORAGE_GET_F_CREATE))
+		return -1;
+	return 0;
 }
 
 static __always_inline bool
@@ -403,8 +380,8 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 #ifdef ENABLE_L7_LB
 out:
 #endif
-	if (sock4_update_revnat(ctx_full, backend, &orig_key,
-				svc->rev_nat_index) < 0) {
+	if (sock4_update_meta(ctx_full, backend, &orig_key,
+			      svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
@@ -540,24 +517,19 @@ int cil_sock4_pre_bind(struct bpf_sock_addr *ctx)
 static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
 {
-	struct ipv4_revnat_entry *val;
+	struct ipv4_sk_meta *val;
 	__u16 dst_port = ctx_dst_port(ctx);
 	__u8 protocol = ctx_protocol(ctx);
 	__u32 dst_ip = ctx->user_ip4;
-	struct ipv4_revnat_tuple key = {
-		.cookie		= sock_local_cookie(ctx_full),
-		.address	= dst_ip,
-		.port		= dst_port,
-	};
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_REV, dst_ip,
 				bpf_ntohs(dst_port), false);
-	val = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
+	val = sk_storage_get(&cilium_lb4_sk_meta, ctx->sk, NULL, 0);
 	if (val) {
 		const struct lb4_service *svc;
 		struct lb4_key svc_key = {
-			.address	= val->address,
-			.dport		= val->port,
+			.address	= val->orig_address,
+			.dport		= val->orig_port,
 			.proto		= protocol,
 		};
 
@@ -568,15 +540,16 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		}
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
 		    (svc->count == 0 && !lb4_svc_is_l7_loadbalancer(svc))) {
-			map_delete_elem(&cilium_lb4_reverse_sk, &key);
+			sk_storage_delete(&cilium_lb4_sk_meta, ctx->sk);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}
 
-		ctx->user_ip4 = val->address;
-		ctx_set_port(ctx, val->port);
-		send_trace_sock_notify4(ctx_full, XLATE_POST_DIRECTION_REV, val->address,
-					bpf_ntohs(val->port), false);
+		ctx->user_ip4 = val->orig_address;
+		ctx_set_port(ctx, val->orig_port);
+		send_trace_sock_notify4(ctx_full, XLATE_POST_DIRECTION_REV,
+					val->orig_address,
+					bpf_ntohs(val->orig_port), false);
 		return 0;
 	}
 
@@ -618,55 +591,25 @@ int cil_sock4_getpeername(struct bpf_sock_addr *ctx)
 #if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
 #ifdef ENABLE_IPV6
 
-static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
-					       const struct lb6_backend *backend,
-					       const struct lb6_key *orig_key,
-					       __u16 rev_nat_index)
+static __always_inline int sock6_update_meta(struct bpf_sock_addr *ctx,
+					     const struct lb6_backend *backend,
+					     const struct lb6_key *orig_key,
+					     __u16 rev_nat_id)
 {
-	struct ipv6_revnat_entry val = {}, *tmp;
-	struct ipv6_revnat_tuple key = {};
-	int ret = 0;
+	struct ipv6_sk_meta val = {
+		.orig_address = orig_key->address,
+		.orig_port = orig_key->dport,
+		.rev_nat_index = rev_nat_id,
+		.backend_address = backend->address,
+		.backend_port = backend->port,
+	};
 
-	key.cookie = sock_local_cookie(ctx);
-	key.address = backend->address;
-	key.port = backend->port;
-
-	val.address = orig_key->address;
-	val.port = orig_key->dport;
-	val.rev_nat_index = rev_nat_index;
-
-	tmp = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
-	if (!tmp || memcmp(tmp, &val, sizeof(val)))
-		ret = map_update_elem(&cilium_lb6_reverse_sk, &key,
-				      &val, 0);
-	return ret;
+	if (!sk_storage_get(&cilium_lb6_sk_meta, ctx->sk, &val,
+			    BPF_SK_STORAGE_GET_F_CREATE))
+		return -1;
+	return 0;
 }
 
-static __always_inline void ctx_get_v6_dst_address(const struct bpf_sock *ctx,
-						   union v6addr *addr)
-{
-	addr->p1 = ctx->dst_ip6[0];
-	barrier();
-	addr->p2 = ctx->dst_ip6[1];
-	barrier();
-	addr->p3 = ctx->dst_ip6[2];
-	barrier();
-	addr->p4 = ctx->dst_ip6[3];
-	barrier();
-}
-
-static __always_inline int sock6_delete_revnat(struct bpf_sock *ctx)
-{
-    struct ipv6_revnat_tuple key = {};
-    int ret = 0;
-
-    key.cookie = get_socket_cookie(ctx);
-    ctx_get_v6_dst_address(ctx, &key.address);
-    key.port = (__u16)ctx->dst_port;
-
-    ret = map_delete_elem(&cilium_lb6_reverse_sk, &key);
-    return ret;
-}
 #endif /* ENABLE_IPV6 */
 
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
@@ -1082,8 +1025,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 #ifdef ENABLE_L7_LB
 out:
 #endif
-	if (sock6_update_revnat(ctx, backend, &orig_key,
-				svc->rev_nat_index) < 0) {
+	if (sock6_update_meta(ctx, backend, &orig_key,
+			      svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
@@ -1149,24 +1092,22 @@ sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 {
 #ifdef ENABLE_IPV6
-	struct ipv6_revnat_tuple key = {};
-	struct ipv6_revnat_entry *val;
+	struct ipv6_sk_meta *val;
 	__u16 dst_port = ctx_dst_port(ctx);
 	__u8 protocol = ctx_protocol(ctx);
+	union v6addr dst_ip;
 
-	key.cookie = sock_local_cookie(ctx);
-	key.port = dst_port;
-	ctx_get_v6_address(ctx, &key.address);
+	ctx_get_v6_address(ctx, &dst_ip);
 
-	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_REV, &key.address,
+	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_REV, &dst_ip,
 				bpf_ntohs(dst_port), false);
 
-	val = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
+	val = sk_storage_get(&cilium_lb6_sk_meta, ctx->sk, NULL, 0);
 	if (val) {
 		const struct lb6_service *svc;
 		struct lb6_key svc_key = {
-			.address	= val->address,
-			.dport		= val->port,
+			.address	= val->orig_address,
+			.dport		= val->orig_port,
 			.proto		= protocol,
 		};
 
@@ -1177,15 +1118,16 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		}
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
 		    (svc->count == 0 && !lb6_svc_is_l7_loadbalancer(svc))) {
-			map_delete_elem(&cilium_lb6_reverse_sk, &key);
+			sk_storage_delete(&cilium_lb6_sk_meta, ctx->sk);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}
 
-		ctx_set_v6_address(ctx, &val->address);
-		ctx_set_port(ctx, val->port);
-		send_trace_sock_notify6(ctx, XLATE_POST_DIRECTION_REV, &val->address,
-					bpf_ntohs(val->port), false);
+		ctx_set_v6_address(ctx, &val->orig_address);
+		ctx_set_port(ctx, val->orig_port);
+		send_trace_sock_notify6(ctx, XLATE_POST_DIRECTION_REV,
+					&val->orig_address,
+					bpf_ntohs(val->orig_port), false);
 		return 0;
 	}
 #endif /* ENABLE_IPV6 */
@@ -1223,43 +1165,6 @@ int cil_sock6_getpeername(struct bpf_sock_addr *ctx)
 }
 #endif /* ENABLE_SOCKET_LB_PEER */
 
-__section("cgroup/sock_release")
-int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
-{
-#ifdef ENABLE_IPV4
-	if (ctx->family == AF_INET) {
-		if (!sock4_delete_revnat(ctx, ctx))
-			update_metrics(0, METRIC_EGRESS,
-				       REASON_LB_REVNAT_DELETE);
-	}
-#endif /* ENABLE_IPV4 */
-#ifdef ENABLE_IPV6
-	if (ctx->family == AF_INET6) {
-# ifdef ENABLE_IPV4
-		union v6addr addr6;
-
-		ctx_get_v6_dst_address(ctx, &addr6);
-		if (is_v4_in_v6(&addr6)) {
-			struct bpf_sock fake_ctx;
-
-			memset(&fake_ctx, 0, sizeof(fake_ctx));
-			fake_ctx.dst_ip4  = addr6.p4;
-			fake_ctx.dst_port = (__u16)ctx->dst_port;
-
-			if (!sock4_delete_revnat(&fake_ctx, ctx))
-				update_metrics(0, METRIC_EGRESS,
-					       REASON_LB_REVNAT_DELETE);
-		} else
-# endif /* ENABLE_IPV4 */
-		{
-			if (!sock6_delete_revnat(ctx))
-				update_metrics(0, METRIC_EGRESS,
-					       REASON_LB_REVNAT_DELETE);
-		}
-	}
-#endif /* ENABLE_IPV6 */
-	return SYS_PROCEED;
-}
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
 BPF_LICENSE("Dual BSD/GPL");

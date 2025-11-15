@@ -13,41 +13,28 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type SockTermIpv4RevnatEntry struct {
+type SockTermIpv4SkMeta struct {
+	_              structs.HostLayout
+	OrigAddress    uint32
+	OrigPort       uint16
+	RevNatIndex    uint16
+	BackendAddress uint32
+	BackendPort    uint32
+}
+
+type SockTermIpv6SkMeta struct {
 	_           structs.HostLayout
-	Address     uint32
-	Port        uint16
-	RevNatIndex uint16
-}
-
-type SockTermIpv4RevnatTuple struct {
-	_       structs.HostLayout
-	Cookie  uint64
-	Address uint32
-	Port    uint16
-	Pad     uint16
-}
-
-type SockTermIpv6RevnatEntry struct {
-	_       structs.HostLayout
-	Address struct {
+	OrigAddress struct {
 		_    structs.HostLayout
 		Addr [16]uint8
 	}
-	Port        uint16
-	RevNatIndex uint16
-}
-
-type SockTermIpv6RevnatTuple struct {
-	_       structs.HostLayout
-	Cookie  uint64
-	Address struct {
+	OrigPort       uint16
+	RevNatIndex    uint16
+	BackendAddress struct {
 		_    structs.HostLayout
 		Addr [16]uint8
 	}
-	Port uint16
-	Pad  uint16
-	_    [4]byte
+	BackendPort uint32
 }
 
 type SockTermSockTermFilter struct {
@@ -116,8 +103,8 @@ type SockTermProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type SockTermMapSpecs struct {
-	CiliumLb4ReverseSk *ebpf.MapSpec `ebpf:"cilium_lb4_reverse_sk"`
-	CiliumLb6ReverseSk *ebpf.MapSpec `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb4SkMeta *ebpf.MapSpec `ebpf:"cilium_lb4_sk_meta"`
+	CiliumLb6SkMeta *ebpf.MapSpec `ebpf:"cilium_lb6_sk_meta"`
 }
 
 // SockTermVariableSpecs contains global variables before they are loaded into the kernel.
@@ -147,14 +134,14 @@ func (o *SockTermObjects) Close() error {
 //
 // It can be passed to LoadSockTermObjects or ebpf.CollectionSpec.LoadAndAssign.
 type SockTermMaps struct {
-	CiliumLb4ReverseSk *ebpf.Map `ebpf:"cilium_lb4_reverse_sk"`
-	CiliumLb6ReverseSk *ebpf.Map `ebpf:"cilium_lb6_reverse_sk"`
+	CiliumLb4SkMeta *ebpf.Map `ebpf:"cilium_lb4_sk_meta"`
+	CiliumLb6SkMeta *ebpf.Map `ebpf:"cilium_lb6_sk_meta"`
 }
 
 func (m *SockTermMaps) Close() error {
 	return _SockTermClose(
-		m.CiliumLb4ReverseSk,
-		m.CiliumLb6ReverseSk,
+		m.CiliumLb4SkMeta,
+		m.CiliumLb6SkMeta,
 	)
 }
 

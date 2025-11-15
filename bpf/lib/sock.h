@@ -19,46 +19,36 @@ __sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
 #endif
 }
 
-struct ipv4_revnat_tuple {
-	__sock_cookie cookie;
-	__be32 address;
-	__be16 port;
-	__u16 pad;
-};
-
-struct ipv4_revnat_entry {
-	__be32 address;
-	__be16 port;
+struct ipv4_sk_meta {
+	__be32 orig_address;
+	__be16 orig_port;
 	__u16 rev_nat_index;
+	__be32 backend_address;
+	__be32 backend_port;
 };
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__type(key, struct ipv4_revnat_tuple);
-	__type(value, struct ipv4_revnat_entry);
+	__uint(type, BPF_MAP_TYPE_SK_STORAGE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
-	__uint(map_flags, LRU_MEM_FLAVOR);
-} cilium_lb4_reverse_sk __section_maps_btf;
+	__type(key, int);
+	__type(value, struct ipv4_sk_meta);
+} cilium_lb4_sk_meta __section_maps_btf;
 
-struct ipv6_revnat_tuple {
-	__sock_cookie cookie;
-	union v6addr address;
-	__be16 port;
-	__u16 pad;
-};
-
-struct ipv6_revnat_entry {
-	union v6addr address;
-	__be16 port;
+struct ipv6_sk_meta {
+	union v6addr orig_address;
+	__be16 orig_port;
 	__u16 rev_nat_index;
+	union v6addr backend_address;
+	__be32 backend_port;
 };
 
 struct {
-	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__type(key, struct ipv6_revnat_tuple);
-	__type(value, struct ipv6_revnat_entry);
+	__uint(type, BPF_MAP_TYPE_SK_STORAGE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
-	__uint(map_flags, LRU_MEM_FLAVOR);
-} cilium_lb6_reverse_sk __section_maps_btf;
+	__type(key, int);
+	__type(value, struct ipv6_sk_meta);
+} cilium_lb6_sk_meta __section_maps_btf;
+
+

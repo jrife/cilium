@@ -171,9 +171,6 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.LBMaglevMapEntries != other.LBMaglevMapEntries {
 		return false
 	}
-	if in.LBSockRevNatEntries != other.LBSockRevNatEntries {
-		return false
-	}
 	if ((in.NodePortRange != nil) && (other.NodePortRange != nil)) || ((in.NodePortRange == nil) != (other.NodePortRange == nil)) {
 		in, other := &in.NodePortRange, &other.NodePortRange
 		if other == nil {

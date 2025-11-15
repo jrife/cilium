@@ -484,10 +484,6 @@ func (d *statusCollector) getBPFMapStatus() *models.BPFMapStatus {
 				Name: "Session affinity",
 				Size: int64(d.statusParams.LBConfig.LBAffinityMapEntries),
 			},
-			{
-				Name: "Sock reverse NAT",
-				Size: int64(d.statusParams.LBConfig.LBSockRevNatEntries),
-			},
 		},
 	}
 }

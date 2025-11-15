@@ -99,11 +99,11 @@ type maglevMaps interface {
 	DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, MaglevInnerKey, *MaglevInnerVal, bool)) error
 }
 
-type sockRevNatMaps interface {
-	UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error
-	DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error
-	ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool
-	SockRevNat() (*bpf.Map, *bpf.Map)
+type sockMetaMaps interface {
+	UpdateSockMeta(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error
+	DeleteSockMeta(cookie uint64, addr net.IP, port uint16) error
+	ExistsSockMeta(cookie uint64, addr net.IP, port uint16) bool
+	SockMeta() (*bpf.Map, *bpf.Map)
 }
 
 // LBMaps defines the map operations performed by the reconciliation.
@@ -116,7 +116,7 @@ type LBMaps interface {
 	affinityMaps
 	sourceRangeMaps
 	maglevMaps
-	sockRevNatMaps
+	sockMetaMaps
 
 	IsEmpty() bool
 }
@@ -135,7 +135,7 @@ type BPFLBMaps struct {
 	revNat4Map, revNat6Map           *bpf.Map
 	affinityMatchMap                 *bpf.Map
 	affinity4Map, affinity6Map       *bpf.Map
-	sockRevNat4Map, sockRevNat6Map   *bpf.Map
+	sockMeta4Map, sockMeta6Map       *bpf.Map
 	sourceRange4Map, sourceRange6Map *bpf.Map
 	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
 
@@ -270,23 +270,23 @@ func NewSourceRange6Map(maxEntries int) *bpf.Map {
 	)
 }
 
-func NewSockRevNat4Map(maxEntries int) *bpf.Map {
+func NewSockMeta4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
-		SockRevNat4MapName,
-		ebpf.LRUHash,
-		&SockRevNat4Key{},
-		&SockRevNat4Value{},
-		maxEntries,
+		SockMeta4MapName,
+		ebpf.SkStorage,
+		&SockMeta4Key{},
+		&SockMeta4Value{},
+		0,
 		0,
 	)
 }
 
-func NewSockRevNat6Map(maxEntries int) *bpf.Map {
+func NewSockMeta6Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
-		SockRevNat6MapName,
+		SockMeta6MapName,
 		ebpf.LRUHash,
-		&SockRevNat6Key{},
-		&SockRevNat6Value{},
+		&SockMeta6Key{},
+		&SockMeta6Value{},
 		maxEntries,
 		0,
 	)
@@ -322,7 +322,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.backend4Map, NewBackend4Map, r.Cfg.LBBackendMapEntries},
 		{&r.revNat4Map, NewRevNat4Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
-		{&r.sockRevNat4Map, NewSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockMeta4Map, NewSockMeta4Map, 0},
 		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
 	}
 	v6Maps := []mapDesc{
@@ -330,7 +330,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.backend6Map, NewBackend6Map, r.Cfg.LBBackendMapEntries},
 		{&r.revNat6Map, NewRevNat6Map, r.Cfg.LBRevNatEntries},
 		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
-		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
+		{&r.sockMeta6Map, NewSockMeta6Map, 0},
 		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
 	}
 	affinityMap := mapDesc{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries}
@@ -690,59 +690,22 @@ func (r *BPFLBMaps) DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, MaglevInn
 	return errors.Join(errs...)
 }
 
-// DeleteSockRevNat implements LBMaps.
-func (r *BPFLBMaps) DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error {
-	if addr.To4() != nil && r.sockRevNat4Map != nil {
-		key := NewSockRevNat4Key(cookie, addr, port)
-		_, err := r.sockRevNat4Map.SilentDelete(key)
-		return err
-	} else if r.sockRevNat6Map != nil {
-		key := NewSockRevNat6Key(cookie, addr, port)
-		_, err := r.sockRevNat6Map.SilentDelete(key)
-		return err
-	}
+// DeleteSockMeta implements LBMaps.
+func (r *BPFLBMaps) DeleteSockMeta(cookie uint64, addr net.IP, port uint16) error {
 	return nil
 }
 
-// UpdateSockRevNat implements LBMaps.
-func (r *BPFLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error {
-	if addr.To4() != nil && r.sockRevNat4Map != nil {
-		key := NewSockRevNat4Key(cookie, addr, port)
-		value := SockRevNat4Value{
-			Address:     key.Address,
-			Port:        key.Port,
-			RevNatIndex: revNatIndex,
-		}
-		return r.sockRevNat4Map.Update(key, &value)
-	} else if r.sockRevNat6Map != nil {
-		key := NewSockRevNat6Key(cookie, addr, port)
-		value := SockRevNat6Value{
-			Address:     key.Address,
-			Port:        key.Port,
-			RevNatIndex: revNatIndex,
-		}
-		return r.sockRevNat6Map.Update(key, &value)
-	}
+// UpdateSockMeta implements LBMaps.
+func (r *BPFLBMaps) UpdateSockMeta(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error {
 	return nil
 }
 
-func (r *BPFLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
-	if addr.To4() != nil && r.sockRevNat4Map != nil {
-		key := NewSockRevNat4Key(cookie, addr, port)
-		if v, _ := r.sockRevNat4Map.Lookup(key); v != nil {
-			return true
-		}
-	} else if r.sockRevNat6Map != nil {
-		key := NewSockRevNat6Key(cookie, addr, port)
-		if v, _ := r.sockRevNat6Map.Lookup(key); v != nil {
-			return true
-		}
-	}
+func (r *BPFLBMaps) ExistsSockMeta(cookie uint64, addr net.IP, port uint16) bool {
 	return false
 }
 
-func (r *BPFLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
-	return r.sockRevNat4Map, r.sockRevNat6Map
+func (r *BPFLBMaps) SockMeta() (*bpf.Map, *bpf.Map) {
+	return r.sockMeta4Map, r.sockMeta6Map
 }
 
 // MaglevInnerMap represents a maglev inner map.
@@ -814,20 +777,20 @@ type FaultyLBMaps struct {
 	failureProbability float32
 }
 
-// DeleteSockRevNat implements LBMaps.
-func (f *FaultyLBMaps) DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error {
+// DeleteSockMeta implements LBMaps.
+func (f *FaultyLBMaps) DeleteSockMeta(cookie uint64, addr net.IP, port uint16) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
-	return f.impl.DeleteSockRevNat(cookie, addr, port)
+	return f.impl.DeleteSockMeta(cookie, addr, port)
 }
 
-// UpdateSockRevNat implements LBMaps.
-func (f *FaultyLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error {
+// UpdateSockMeta implements LBMaps.
+func (f *FaultyLBMaps) UpdateSockMeta(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
-	return f.impl.UpdateSockRevNat(cookie, addr, port, revNatIndex)
+	return f.impl.UpdateSockMeta(cookie, addr, port, revNatIndex)
 }
 
 // DeleteSourceRange implements lbmaps.
@@ -967,12 +930,12 @@ func (f *FaultyLBMaps) DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, Maglev
 	return f.impl.DumpMaglev(cb)
 }
 
-func (f *FaultyLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
-	return f.impl.ExistsSockRevNat(cookie, addr, port)
+func (f *FaultyLBMaps) ExistsSockMeta(cookie uint64, addr net.IP, port uint16) bool {
+	return f.impl.ExistsSockMeta(cookie, addr, port)
 }
 
-func (f *FaultyLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
-	return f.impl.SockRevNat()
+func (f *FaultyLBMaps) SockMeta() (*bpf.Map, *bpf.Map) {
+	return f.impl.SockMeta()
 }
 
 // LookupBackend implements LBMaps.
@@ -1195,57 +1158,21 @@ func (f *FakeLBMaps) DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, MaglevIn
 	return err
 }
 
-// DeleteSockRevNat implements LBMaps.
-func (f *FakeLBMaps) DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error {
-	var key bpf.MapKey
-	if addr.To4() != nil {
-		key4 := NewSockRevNat4Key(cookie, addr, port)
-		key = key4
-	} else {
-		key6 := NewSockRevNat6Key(cookie, addr, port)
-		key = key6
-	}
-	return f.sockRevNat.delete(key)
-}
-
-// UpdateSockRevNat implements LBMaps.
-func (f *FakeLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error {
-	var key bpf.MapKey
-	var value bpf.MapValue
-	if addr.To4() != nil {
-		key4 := NewSockRevNat4Key(cookie, addr, port)
-		key = key4
-		value = &SockRevNat4Value{
-			Address:     key4.Address,
-			Port:        key4.Port,
-			RevNatIndex: revNatIndex,
-		}
-	} else {
-		key6 := NewSockRevNat6Key(cookie, addr, port)
-		key = key6
-		value = &SockRevNat6Value{
-			Address:     key6.Address,
-			Port:        key6.Port,
-			RevNatIndex: revNatIndex,
-		}
-	}
-	f.sockRevNat.update(key, value)
+// DeleteSockMeta implements LBMaps.
+func (f *FakeLBMaps) DeleteSockMeta(cookie uint64, addr net.IP, port uint16) error {
 	return nil
 }
 
-func (f *FakeLBMaps) ExistsSockRevNat(cookie uint64, addr net.IP, port uint16) bool {
-	var key bpf.MapKey
-	if addr.To4() != nil {
-		key4 := NewSockRevNat4Key(cookie, addr, port)
-		key = key4
-	} else {
-		key6 := NewSockRevNat6Key(cookie, addr, port)
-		key = key6
-	}
-	return f.sockRevNat.exists(key)
+// UpdateSockMeta implements LBMaps.
+func (f *FakeLBMaps) UpdateSockMeta(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error {
+	return nil
 }
 
-func (f *FakeLBMaps) SockRevNat() (*bpf.Map, *bpf.Map) {
+func (f *FakeLBMaps) ExistsSockMeta(cookie uint64, addr net.IP, port uint16) bool {
+	return false
+}
+
+func (f *FakeLBMaps) SockMeta() (*bpf.Map, *bpf.Map) {
 	return nil, nil
 }
 

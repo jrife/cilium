@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/unspec.h>
+#include "bpf/helpers_sock.h"
 #include "common.h"
 #include "pktgen.h"
 
@@ -22,6 +23,7 @@
 #define V6_SVC_TWO v6_node_two
 
 #define get_netns_cookie(ctx) test_get_netns_cookie(ctx)
+#define sk_storage_get test_sk_storage_get
 /* Set netns_cookie based on the source ip in the addr. While this field isn't
  * populated in real CGROUP_SOCK_ADDR hooks, we use it only for testing to
  * mock netns_cookies for different source pods.
@@ -41,6 +43,14 @@ int test_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 		return NETNS_COOKIE;
 	else
 		return NETNS_COOKIE2;
+}
+
+static __always_inline void *
+test_sk_storage_get(void *map __maybe_unused,
+		    struct bpf_sock *sk __maybe_unused,
+		    void *value __maybe_unused, __u64 flags __maybe_unused)
+{
+	return (void *)1;
 }
 
 #include "bpf_sock.c"

@@ -81,10 +81,8 @@ func init() {
 		"metrics_value":        {metricsmap.Value{}},
 		"policy_key":           {policymap.PolicyKey{}},
 		"policy_entry":         {policymap.PolicyEntry{}},
-		"ipv4_revnat_tuple":    {lbmap.SockRevNat4Key{}},
-		"ipv4_revnat_entry":    {lbmap.SockRevNat4Value{}},
-		"ipv6_revnat_tuple":    {lbmap.SockRevNat6Key{}},
-		"ipv6_revnat_entry":    {lbmap.SockRevNat6Value{}},
+		"ipv4_sk_meta":         {lbmap.SockMeta4Value{}},
+		"ipv6_sk_meta":         {lbmap.SockMeta6Value{}},
 		"v6addr": {
 			neighborsmap.Key6{},
 			srv6map.PolicyValue{},

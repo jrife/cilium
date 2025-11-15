@@ -932,7 +932,6 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				94, // ctmap.SizeofCTKey + policymap.SizeofCTEntry
 				94, // nat.SizeofNATKey + nat.SizeofNATEntry
 				24, // neighborsmap.SizeofNeighKey6 + neighborsmap.SizeOfNeighValue
-				48, // lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value
 			)
 
 			if tt.totalMemory > 0 && tt.ratio > 0.0 {

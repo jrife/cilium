@@ -29,7 +29,7 @@ type FilterSetter func(af uint8, addr net.IP, port uint16) error
 // LoadSockTerm loads the cil_sock_udp_destroy_v4, cil_sock_tcp_destroy_v4,
 // cil_sock_tcp_destroy_v6, and cil_sock_udp_destroy_v6 programs. It returns a
 // handle to the programs and a function that sets the socket filter.
-func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.SockTermPrograms, FilterSetter, error) {
+func LoadSockTerm(l *slog.Logger, sockMeta4, sockMeta6 *bpf.Map) (*bpfgen.SockTermPrograms, FilterSetter, error) {
 	spec, err := bpfgen.LoadSockTerm()
 	if err != nil {
 		return nil, nil, fmt.Errorf("load eBPF ELF: %w", err)
@@ -37,28 +37,28 @@ func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.So
 
 	mapReplacements := make(map[string]*bpf.Map)
 
-	if m := spec.Maps[maps.SockRevNat4MapName]; m == nil {
-		return nil, nil, fmt.Errorf("%s map not found in spec", maps.SockRevNat4MapName)
-	} else if sockRevNat4 == nil {
-		delete(spec.Maps, maps.SockRevNat4MapName)
+	if m := spec.Maps[maps.SockMeta4MapName]; m == nil {
+		return nil, nil, fmt.Errorf("%s map not found in spec", maps.SockMeta4MapName)
+	} else if sockMeta4 == nil {
+		delete(spec.Maps, maps.SockMeta4MapName)
 		delete(spec.Programs, v4UDPProgName)
 		delete(spec.Programs, v4TCPProgName)
 	} else {
-		m.Flags = sockRevNat4.Flags()
-		m.MaxEntries = sockRevNat4.MaxEntries()
-		mapReplacements[maps.SockRevNat4MapName] = sockRevNat4
+		m.Flags = sockMeta4.Flags()
+		m.MaxEntries = sockMeta4.MaxEntries()
+		mapReplacements[maps.SockMeta4MapName] = sockMeta4
 	}
 
-	if m := spec.Maps[maps.SockRevNat6MapName]; m == nil {
-		return nil, nil, fmt.Errorf("%s map not found in spec", maps.SockRevNat6MapName)
-	} else if sockRevNat6 == nil {
-		delete(spec.Maps, maps.SockRevNat6MapName)
+	if m := spec.Maps[maps.SockMeta6MapName]; m == nil {
+		return nil, nil, fmt.Errorf("%s map not found in spec", maps.SockMeta6MapName)
+	} else if sockMeta6 == nil {
+		delete(spec.Maps, maps.SockMeta6MapName)
 		delete(spec.Programs, v6UDPProgName)
 		delete(spec.Programs, v6TCPProgName)
 	} else {
-		m.Flags = sockRevNat6.Flags()
-		m.MaxEntries = sockRevNat6.MaxEntries()
-		mapReplacements[maps.SockRevNat6MapName] = sockRevNat6
+		m.Flags = sockMeta6.Flags()
+		m.MaxEntries = sockMeta6.MaxEntries()
+		mapReplacements[maps.SockMeta6MapName] = sockMeta6
 	}
 
 	// Since the programs use the bpf_sock_destroy() kfunc, the loader

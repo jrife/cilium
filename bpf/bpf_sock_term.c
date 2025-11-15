@@ -8,6 +8,7 @@
 #include <lib/static_data.h>
 
 #include "bpf/compiler.h"
+#include "bpf/helpers_sock.h"
 #include "lib/endian.h"
 #include "lib/sock.h"
 #include "lib/sock_term.h"
@@ -42,27 +43,21 @@ static int BPF_FUNC(seq_write, struct seq_file *m, const void *data,
 #endif
 
 static __always_inline
-bool matches_v4(__sock_cookie cookie)
+bool matches_v4(struct ipv4_sk_meta *meta)
 {
-	struct ipv4_revnat_tuple key = { };
-
-	key.address = cilium_sock_term_filter.address.addr4;
-	key.port    = bpf_htons(cilium_sock_term_filter.port);
-	key.cookie  = cookie;
-
-	return map_lookup_elem(&cilium_lb4_reverse_sk, &key);
+	return meta &&
+	       meta->backend_address == cilium_sock_term_filter.address.addr4 &&
+	       meta->backend_port == bpf_htons(cilium_sock_term_filter.port);
 }
 
 static __always_inline
-bool matches_v6(__sock_cookie cookie)
+bool matches_v6(struct ipv6_sk_meta *meta)
 {
-	struct ipv6_revnat_tuple key = { };
-
-	key.address = cilium_sock_term_filter.address.addr6;
-	key.port    = bpf_htons(cilium_sock_term_filter.port);
-	key.cookie  = cookie;
-
-	return map_lookup_elem(&cilium_lb6_reverse_sk, &key);
+	return meta &&
+	       !memcmp(&meta->backend_address,
+		       &cilium_sock_term_filter.address.addr6,
+		       sizeof(union v6addr)) &&
+	       meta->backend_port == bpf_htons(cilium_sock_term_filter.port);
 }
 
 static __always_inline
@@ -76,7 +71,7 @@ int sock_udp_destroy_v4(struct bpf_iter__udp *ctx)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v4(cookie))
+	if (!matches_v4(sk_storage_get(&cilium_lb4_sk_meta, sk, NULL, 0)))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))
@@ -96,7 +91,7 @@ int sock_tcp_destroy_v4(struct bpf_iter__tcp *ctx __maybe_unused)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v4(cookie))
+	if (!matches_v4(sk_storage_get(&cilium_lb4_sk_meta, sk, NULL, 0)))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))
@@ -116,7 +111,7 @@ int sock_udp_destroy_v6(struct bpf_iter__udp *ctx)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v6(cookie))
+	if (!matches_v6(sk_storage_get(&cilium_lb6_sk_meta, sk, NULL, 0)))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))
@@ -136,7 +131,7 @@ int sock_tcp_destroy_v6(struct bpf_iter__tcp *ctx __maybe_unused)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v6(cookie))
+	if (!matches_v6(sk_storage_get(&cilium_lb6_sk_meta, sk, NULL, 0)))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))

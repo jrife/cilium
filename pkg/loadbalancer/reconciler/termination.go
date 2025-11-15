@@ -91,8 +91,8 @@ type netnsOps struct {
 type socketDestroyerFactory func(socketTerminationParams) (sockets.SocketDestroyer, error)
 
 func makeSocketDestroyer(p socketTerminationParams) (sockets.SocketDestroyer, error) {
-	sockRevNat4, sockRevNat6 := p.LBMaps.SockRevNat()
-	sd, err := sockets.NewSocketDestroyer(p.Log, sockRevNat4, sockRevNat6)
+	sockMeta4, sockMeta6 := p.LBMaps.SockMeta()
+	sd, err := sockets.NewSocketDestroyer(p.Log, sockMeta4, sockMeta6)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func terminateConnectionsToBackend(p socketTerminationParams, sd sockets.SocketD
 	checkSockInRevNat := func(id netlink.SocketID) bool {
 		cookie := uint64(id.Cookie[1])
 		cookie = cookie<<32 + uint64(id.Cookie[0])
-		return p.LBMaps.ExistsSockRevNat(cookie, id.Destination, id.DestinationPort)
+		return p.LBMaps.ExistsSockMeta(cookie, id.Destination, id.DestinationPort)
 	}
 
 	destroy := func(nsName string, ns *netns.NetNS) error {

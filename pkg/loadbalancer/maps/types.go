@@ -962,116 +962,86 @@ func (v *AffinityValue) String() string    { return fmt.Sprintf("%d %d", v.Backe
 func (v *AffinityValue) New() bpf.MapValue { return &AffinityValue{} }
 
 //
-// SockRevNat
+// SockMeta
 //
 
 const (
-	// SockRevNat4MapName is the BPF map name.
-	SockRevNat4MapName = "cilium_lb4_reverse_sk"
+	// SockMeta4MapName is the BPF map name.
+	SockMeta4MapName = "cilium_lb4_sk_meta"
 
-	// SockRevNat6MapName is the BPF map name.
-	SockRevNat6MapName = "cilium_lb6_reverse_sk"
-
-	// SockRevNat4MapSize is the maximum number of entries in the BPF map.
-	SockRevNat4MapSize = 256 * 1024
-
-	// SockRevNat6MapSize is the maximum number of entries in the BPF map.
-	SockRevNat6MapSize = 256 * 1024
-
-	// MaxSockRevNat4MapEntries is the maximum number of entries in the BPF
-	// map. It is set by Init(), but unit tests use the initial value below.
-	MaxSockRevNat4MapEntries = SockRevNat4MapSize
-
-	// MaxSockRevNat6MapEntries is the maximum number of entries in the BPF
-	// map. It is set by Init(), but unit tests use the initial value below.
-	MaxSockRevNat6MapEntries = SockRevNat6MapSize
+	// SockMeta6MapName is the BPF map name.
+	SockMeta6MapName = "cilium_lb6_sk_meta"
 )
 
-// SockRevNat4Key is the tuple with address, port and cookie used as key in
-// the reverse NAT sock map.
-type SockRevNat4Key struct {
-	Cookie  uint64     `align:"cookie"`
-	Address types.IPv4 `align:"address"`
-	Port    int16      `align:"port"`
-	_       int16
+type SockMeta4Key struct {
+	Key int
 }
 
-// SockRevNat4Value is an entry in the reverse NAT sock map.
-type SockRevNat4Value struct {
-	Address     types.IPv4 `align:"address"`
-	Port        int16      `align:"port"`
-	RevNatIndex uint16     `align:"rev_nat_index"`
+// SockMeta4Value is an entry in the socket metadata map.
+type SockMeta4Value struct {
+	OrigAddress    types.IPv4 `align:"orig_address"`
+	OrigPort       int16      `align:"orig_port"`
+	RevNatIndex    uint16     `align:"rev_nat_index"`
+	BackendAddress types.IPv4 `align:"backend_address"`
+	BackendPort    int16      `align:"backend_port"`
 }
 
-func NewSockRevNat4Key(cookie uint64, addr net.IP, port uint16) *SockRevNat4Key {
-	var key SockRevNat4Key
-	key.Cookie = cookie
-	key.Port = int16(byteorder.NetworkToHost16(port))
-	copy(key.Address[:], addr.To4())
+func NewSockMeta4Key() *SockMeta4Key {
+	var key SockMeta4Key
+	key.Key = 0
+
+	return &key
+}
+
+func (k *SockMeta4Key) String() string  { return fmt.Sprintf("%d", k.Key) }
+func (k *SockMeta4Key) New() bpf.MapKey { return &SockMeta4Key{} }
+
+// String converts the value into a human readable string format.
+func (v *SockMeta4Value) String() string {
+	return fmt.Sprintf("[%s]:%d, %d, [%s]:%d", v.OrigAddress, v.OrigPort, v.RevNatIndex, v.BackendAddress, v.BackendPort)
+}
+
+func (v *SockMeta4Value) New() bpf.MapValue { return &SockMeta4Value{} }
+
+type SockMeta6Key struct {
+	Key int
+}
+
+// SizeofSockMeta6Key is the size of type SockMeta6Key.
+const SizeofSockMeta6Key = int(unsafe.Sizeof(SockMeta6Key{}))
+
+// SockMeta6Value is an entry in the socket metadata map.
+type SockMeta6Value struct {
+	OrigAddress    types.IPv6 `align:"orig_address"`
+	OrigPort       int16      `align:"orig_port"`
+	RevNatIndex    uint16     `align:"rev_nat_index"`
+	BackendAddress types.IPv6 `align:"backend_address"`
+	BackendPort    int16      `align:"backend_port"`
+}
+
+// SizeofSockMeta6Value is the size of type SockMeta6Value.
+const SizeofSockMeta6Value = int(unsafe.Sizeof(SockMeta6Value{}))
+
+func NewSockMeta6Key() *SockMeta6Key {
+	var key SockMeta6Key
+	key.Key = 0
 
 	return &key
 }
 
 // String converts the key into a human readable string format.
-func (k *SockRevNat4Key) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", k.Address, k.Port, k.Cookie)
+func (k *SockMeta6Key) String() string {
+	return fmt.Sprintf("%d", k.Key)
 }
 
-func (k *SockRevNat4Key) New() bpf.MapKey { return &SockRevNat4Key{} }
+func (k *SockMeta6Key) New() bpf.MapKey { return &SockMeta6Key{} }
 
 // String converts the value into a human readable string format.
-func (v *SockRevNat4Value) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", v.Address, v.Port, v.RevNatIndex)
+func (v *SockMeta6Value) String() string {
+	return fmt.Sprintf("[%s]:%d, %d, [%s]:%d", v.OrigAddress, v.OrigPort, v.RevNatIndex, v.BackendAddress, v.BackendPort)
 }
 
-func (v *SockRevNat4Value) New() bpf.MapValue { return &SockRevNat4Value{} }
-
-// SockRevNat6Key is the tuple with address, port and cookie used as key in
-// the reverse NAT sock map.
-type SockRevNat6Key struct {
-	Cookie  uint64     `align:"cookie"`
-	Address types.IPv6 `align:"address"`
-	Port    int16      `align:"port"`
-	_       [6]byte
-}
-
-// SizeofSockRevNat6Key is the size of type SockRevNat6Key.
-const SizeofSockRevNat6Key = int(unsafe.Sizeof(SockRevNat6Key{}))
-
-// SockRevNat6Value is an entry in the reverse NAT sock map.
-type SockRevNat6Value struct {
-	Address     types.IPv6 `align:"address"`
-	Port        int16      `align:"port"`
-	RevNatIndex uint16     `align:"rev_nat_index"`
-}
-
-// SizeofSockRevNat6Value is the size of type SockRevNat6Value.
-const SizeofSockRevNat6Value = int(unsafe.Sizeof(SockRevNat6Value{}))
-
-func NewSockRevNat6Key(cookie uint64, addr net.IP, port uint16) *SockRevNat6Key {
-	var key SockRevNat6Key
-
-	key.Cookie = cookie
-	key.Port = int16(byteorder.NetworkToHost16(port))
-	ipv6Array := addr.To16()
-	copy(key.Address[:], ipv6Array[:])
-
-	return &key
-}
-
-// String converts the key into a human readable string format.
-func (k *SockRevNat6Key) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", k.Address, k.Port, k.Cookie)
-}
-
-func (k *SockRevNat6Key) New() bpf.MapKey { return &SockRevNat6Key{} }
-
-// String converts the value into a human readable string format.
-func (v *SockRevNat6Value) String() string {
-	return fmt.Sprintf("[%s]:%d, %d", v.Address, v.Port, v.RevNatIndex)
-}
-
-func (v *SockRevNat6Value) New() bpf.MapValue { return &SockRevNat6Value{} }
+func (v *SockMeta6Value) New() bpf.MapValue { return &SockMeta6Value{} }
 
 //
 // Maglev

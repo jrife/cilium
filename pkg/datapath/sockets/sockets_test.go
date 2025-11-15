@@ -227,30 +227,30 @@ func (d *netlinkSocketDestroyer) Reset() error {
 type testBPFSocketDestroyer struct {
 	*bpfSocketDestroyer
 
-	sockRevNat4Map *bpf.Map
-	sockRevNat6Map *bpf.Map
+	sockMeta4Map *bpf.Map
+	sockMeta6Map *bpf.Map
 }
 
 func newTestBPFSocketDestroyer(tb testing.TB) socketDestroyerTester {
 	tb.Helper()
 
-	sockRevNat4Map := bpf.NewMap(maps.SockRevNat4MapName,
+	sockMeta4Map := bpf.NewMap(maps.SockMeta4MapName,
 		ebpf.LRUHash,
-		&maps.SockRevNat4Key{},
-		&maps.SockRevNat4Value{},
-		maps.MaxSockRevNat4MapEntries,
+		&maps.SockMeta4Key{},
+		&maps.SockMeta4Value{},
+		0,
 		0,
 	)
-	require.NoError(tb, sockRevNat4Map.OpenOrCreate())
-	sockRevNat6Map := bpf.NewMap(maps.SockRevNat6MapName,
+	require.NoError(tb, sockMeta4Map.OpenOrCreate())
+	sockMeta6Map := bpf.NewMap(maps.SockMeta6MapName,
 		ebpf.LRUHash,
-		&maps.SockRevNat6Key{},
-		&maps.SockRevNat6Value{},
-		maps.MaxSockRevNat6MapEntries,
+		&maps.SockMeta6Key{},
+		&maps.SockMeta6Value{},
+		0,
 		0,
 	)
-	require.NoError(tb, sockRevNat6Map.OpenOrCreate())
-	progs, filterSetter, err := loader.LoadSockTerm(hivetest.Logger(tb), sockRevNat4Map, sockRevNat6Map)
+	require.NoError(tb, sockMeta6Map.OpenOrCreate())
+	progs, filterSetter, err := loader.LoadSockTerm(hivetest.Logger(tb), sockMeta4Map, sockMeta6Map)
 	require.NoError(tb, err)
 	tb.Cleanup(func() {
 		progs.CilSockUdpDestroyV4.Close()
@@ -264,8 +264,8 @@ func newTestBPFSocketDestroyer(tb testing.TB) socketDestroyerTester {
 			progs:        progs,
 			filterSetter: filterSetter,
 		},
-		sockRevNat4Map: sockRevNat4Map,
-		sockRevNat6Map: sockRevNat6Map,
+		sockMeta4Map: sockMeta4Map,
+		sockMeta6Map: sockMeta6Map,
 	}
 }
 
@@ -288,13 +288,13 @@ func (d *testBPFSocketDestroyer) PrepareAddress(network string, cookie uint64, a
 
 	switch network {
 	case "udp", "tcp":
-		key = maps.NewSockRevNat4Key(cookie, ip, uint16(port))
-		value = &maps.SockRevNat4Value{}
-		sockRevMap = d.sockRevNat4Map
+		key = maps.NewSockMeta4Key()
+		value = &maps.SockMeta4Value{}
+		sockRevMap = d.sockMeta4Map
 	case "udp6", "tcp6":
-		key = maps.NewSockRevNat6Key(cookie, ip, uint16(port))
-		value = &maps.SockRevNat6Value{}
-		sockRevMap = d.sockRevNat6Map
+		key = maps.NewSockMeta6Key()
+		value = &maps.SockMeta6Value{}
+		sockRevMap = d.sockMeta6Map
 	default:
 		return fmt.Errorf("unknown network: %s", network)
 	}
@@ -303,10 +303,10 @@ func (d *testBPFSocketDestroyer) PrepareAddress(network string, cookie uint64, a
 }
 
 func (d *testBPFSocketDestroyer) Reset() error {
-	if err := d.sockRevNat4Map.DeleteAll(); err != nil {
+	if err := d.sockMeta4Map.DeleteAll(); err != nil {
 		return err
 	}
-	if err := d.sockRevNat6Map.DeleteAll(); err != nil {
+	if err := d.sockMeta6Map.DeleteAll(); err != nil {
 		return err
 	}
 

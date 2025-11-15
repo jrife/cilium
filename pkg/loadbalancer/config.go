@@ -45,10 +45,6 @@ const (
 	// LBMaglevMapMaxEntries configures max entries of bpf map for Maglev.
 	LBMaglevMapMaxEntries = "bpf-lb-maglev-map-max"
 
-	// SockRevNatEntriesName configures max entries for BPF sock reverse nat
-	// entries.
-	LBSockRevNatEntriesName = "bpf-sock-rev-map-max"
-
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
 
@@ -158,10 +154,6 @@ type UserConfig struct {
 
 	// LBMaglevMapEntries is the maximum number of entries allowed in BPF lbmap for maglev.
 	LBMaglevMapEntries int `mapstructure:"bpf-lb-maglev-map-max"`
-
-	// LBSockRevNatEntries is the maximum number of sock rev nat mappings
-	// allowed in the BPF rev nat table
-	LBSockRevNatEntries int `mapstructure:"bpf-sock-rev-map-max"`
 
 	// NodePortRange is the minimum and maximum ports to use for NodePort
 	NodePortRange []string
@@ -306,8 +298,6 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int(LBMaglevMapMaxEntries, def.LBMaglevMapEntries, fmt.Sprintf("Maximum number of entries in Cilium BPF lbmap for maglev (if this isn't set, the value of --%s will be used.)", LBMapEntriesName))
 	flags.MarkHidden(LBMaglevMapMaxEntries)
 
-	flags.Int(LBSockRevNatEntriesName, def.LBSockRevNatEntries, "Maximum number of entries for the SockRevNAT BPF map")
-
 	flags.StringSlice(NodePortRange, []string{fmt.Sprintf("%d", NodePortMinDefault), fmt.Sprintf("%d", NodePortMaxDefault)}, "Set the min/max NodePort port range")
 
 	flags.String(LBAlgorithmName, def.LBAlgorithm, "BPF load balancing algorithm (\"random\", \"maglev\")")
@@ -360,22 +350,6 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 			cfg.LBAffinityMapEntries,
 			cfg.LBSourceRangeMapEntries,
 			cfg.LBMaglevMapEntries)
-	}
-
-	// Dynamically size the SockRevNat map if not set by the user.
-	if cfg.LBSockRevNatEntries == 0 {
-		getEntries := dcfg.GetDynamicSizeCalculator(log)
-		cfg.LBSockRevNatEntries = getEntries(option.SockRevNATMapEntriesDefault, option.LimitTableAutoSockRevNatMin, option.LimitTableMax)
-		log.Info(fmt.Sprintf("option %s set by dynamic sizing to %v", LBSockRevNatEntriesName, cfg.LBSockRevNatEntries)) // FIXME
-	}
-
-	if cfg.LBSockRevNatEntries < option.LimitTableMin {
-		return Config{}, fmt.Errorf("specified Socket Reverse NAT table size %d must be greater or equal to %d",
-			cfg.LBSockRevNatEntries, option.LimitTableMin)
-	}
-	if cfg.LBSockRevNatEntries > option.LimitTableMax {
-		return Config{}, fmt.Errorf("specified Socket Reverse NAT tables size %d must not exceed maximum %d",
-			cfg.LBSockRevNatEntries, option.LimitTableMax)
 	}
 
 	// Use [cfg.LBMapEntries] for map size if not overridden.
@@ -483,8 +457,6 @@ var DefaultUserConfig = UserConfig{
 	LBAffinityMapEntries:    0, // ...
 	LBSourceRangeMapEntries: 0, // ...
 	LBMaglevMapEntries:      0, // ...
-
-	LBSockRevNatEntries: 0, // Probes for suitable size if zero
 
 	LBSourceRangeAllTypes:    false,
 	LBSockTerminateAllProtos: false,

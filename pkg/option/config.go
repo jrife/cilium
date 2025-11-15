@@ -556,10 +556,6 @@ const (
 	// ration calculation.
 	LimitTableAutoNatGlobalMin = 1 << 17 // 128Ki entries
 
-	// LimitTableAutoSockRevNatMin defines the minimum SockRevNAT limit for
-	// dynamic size ration calculation.
-	LimitTableAutoSockRevNatMin = 1 << 16 // 64Ki entries
-
 	// LimitTableMin defines the minimum CT or NAT table limit
 	LimitTableMin = 1 << 10 // 1Ki entries
 
@@ -1741,10 +1737,6 @@ type DaemonConfig struct {
 	// SizeofNeighElement is the size of an element (key + value) in the neigh
 	// map.
 	SizeofNeighElement int
-
-	// SizeofSockRevElement is the size of an element (key + value) in the neigh
-	// map.
-	SizeofSockRevElement int
 
 	// k8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
 	// for the support of Leases in Kubernetes when there is an error in discovering
@@ -3139,13 +3131,11 @@ func (c *DaemonConfig) calculateBPFMapSizes(logger *slog.Logger, vp *viper.Viper
 func (c *DaemonConfig) SetMapElementSizes(
 	sizeofCTElement,
 	sizeofNATElement,
-	sizeofNeighElement,
-	sizeofSockRevElement int) {
+	sizeofNeighElement int) {
 
 	c.SizeofCTElement = sizeofCTElement
 	c.SizeofNATElement = sizeofNATElement
 	c.SizeofNeighElement = sizeofNeighElement
-	c.SizeofSockRevElement = sizeofSockRevElement
 }
 
 func (c *DaemonConfig) GetDynamicSizeCalculator(logger *slog.Logger) func(def int, min int, max int) int {

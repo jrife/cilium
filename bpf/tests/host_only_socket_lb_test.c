@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/unspec.h>
+#include "bpf/helpers_sock.h"
 #include "common.h"
 #include "pktgen.h"
 
@@ -28,7 +29,16 @@ int my_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 	return addr->user_port == DST_PORT_HOSTNS ? HOST_NETNS_COOKIE : 1;
 }
 
+static __always_inline void *
+my_sk_storage_get(void *map __maybe_unused,
+		  struct bpf_sock *sk __maybe_unused,
+		  void *value __maybe_unused, __u64 flags __maybe_unused)
+{
+	return (void *)1;
+}
+
 #define get_netns_cookie(ctx) my_get_netns_cookie(ctx)
+#define sk_storage_get my_sk_storage_get
 
 #include "bpf_sock.c"
 #include "lib/common.h"
