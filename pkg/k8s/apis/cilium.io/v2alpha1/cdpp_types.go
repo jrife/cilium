@@ -10,7 +10,7 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:categories={cilium},singular="ciliumdatapathplugin",path="ciliumdatapathplugins",scope="Cluster",shortName={ccg}
+// +kubebuilder:resource:categories={cilium},singular="ciliumdatapathplugin",path="ciliumdatapathplugins",scope="Cluster",shortName={cddp}
 // +kubebuilder:object:root=true
 // +kubebuilder:deprecatedversion
 // +deepequal-gen=false

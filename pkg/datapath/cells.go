@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/node"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
+	"github.com/cilium/cilium/pkg/datapath/plugins"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -160,6 +161,8 @@ var Cell = cell.Module(
 	// Provides the desired route table, and a reconciler that installs these desired routes
 	// into the Linux kernel routing table.
 	routeReconciler.Cell,
+
+	plugins.Cell,
 )
 
 func initDatapath(rootLogger *slog.Logger, lifecycle cell.Lifecycle) {
