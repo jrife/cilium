@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+syntax = "proto3";
+
+package datapathplugins;
+
+option go_package = "github.com/cilium/cilium/api/v1/datapathplugins";
+
+service DatapathPlugin {
+    rpc PrepareHooks(PrepareHooksRequest) returns (PrepareHooksResponse) {}
+    rpc LoadHooks(LoadHooksRequest) returns (LoadHooksResponse) {}
+}
+
+// LocalNodeConfig is Cilium's current config for this node. It may be used
+// by plugins to decide which hooks to load, how to configure them, etc.
+message LocalNodeConfig {
+    // TBD
+}
+
+// AttachmentContext contains the context about the attachment point in
+// question. It may carry endpoint-specific information used to determine which
+// hooks to load or how to configure them.
+message AttachmentContext {
+    message TC {
+        // Contains endpoint-specific config (IP, MAC, etc.)
+        message EndpointConfig {
+        }
+
+        EndpointConfig ep_config = 1;
+    }
+
+    // context contains information about the attachment context. Add more
+    // fields for future attachment contexts like XDP, CgroupSock, etc.
+    oneof context {
+        TC tc = 1;
+        // XDP xdp = 2;
+        // CgroupSock cgroup_sock = 3;
+    }
+}
+
+enum HookType {
+    PRE = 0;
+    POST = 1;
+}
+
+// Phase 1: As Cilium loads and prepares a collection for a particular
+// attachment point, it sends a PrepareHooksRequest to each plugin with context
+// about the attachment point, collection, and local node config. The plugin
+// decides which hooks it would like to insert, where it would like to insert
+// them, and informs Cilium in the PrepareHooksResponse.
+message PrepareHooksRequest {
+    message CollectionSpec {
+        message ProgramSpec {
+            string name = 1;
+        }
+
+        repeated ProgramSpec programs = 1;
+    }
+
+    CollectionSpec collection = 1;
+    LocalNodeConfig local_node_config = 2;
+    AttachmentContext attachment_context = 3;
+}
+
+message PrepareHooksResponse {
+    message HookSpec {
+        // An OrderingConstraint is a constraint about where this hook should
+        // go at this hook point relative to other plugins' hooks.
+        message OrderingConstraint {
+            enum Order {
+                BEFORE = 0;
+                AFTER = 1;
+            }
+            Order order = 1;
+            string plugin = 2;
+        }
+        // PRE/POST (for now)
+        HookType type = 1;
+        // Which program are we instrumenting?
+        string target = 2;
+        repeated OrderingConstraint constraints = 3;
+    }
+
+    repeated HookSpec hooks = 1;
+    // May be used by a plugin to associate a LoadHooksRequest with its
+    // preceding PrepareHooksRequest or carry other metadata between phases
+    // that may be helpful.
+    string cookie = 2;
+}
+
+// Phase 2: Cilium has constructed and loaded the collection along with any
+// dispatcher programs that are meant to replace existing entrypoints in the
+// collection. Cilium sends a round of requests to any plugins that wanted to
+// inject hooks.
+message LoadHooksRequest {
+    // Program and map IDs in the collection
+    message Collection {
+        // Would contain information about programs and maps in this collection
+        // such as names, IDs, etc. This could be consumed by plugin programs
+        // themselves, e.g., for sharing map state.
+    }
+
+    message Hook {
+        message AttachTarget {
+            uint64 program_id = 1;
+            string subprog_name = 2;
+        }
+
+        HookType type = 1;
+        string target = 2;
+        // Contains target metadata necessary for freplace program load.
+        AttachTarget attach_target = 3;
+        // The plugin must pin the program to this pin path before responding
+        // to Cilium.
+        string pin_path = 4;
+    }
+
+    
+    Collection collection = 1;
+    LocalNodeConfig local_node_config = 2;
+    AttachmentContext attachment_context= 3;
+    repeated Hook hooks = 4;
+    string cookie = 5;
+}
+
+message LoadHooksResponse {
+}
