@@ -23,6 +23,7 @@ import (
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/plugins"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -96,7 +97,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(l.logger, l.db, l.devices, l.routeManager, ep, lnc, spec)
+	err = reloadEndpoint(l.logger, l.db, l.devices, l.routeManager, l.pluginManager, ep, lnc, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -181,7 +182,8 @@ func endpointMapRenames(ep datapath.EndpointConfiguration) map[string]string {
 // it if necessary.
 func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 	devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager,
-	ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+	pm plugins.Manager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration,
+	spec *ebpf.CollectionSpec) error {
 
 	var obj lxcObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -196,6 +198,8 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 		return err
 	}
 	defer obj.Close()
+
+	pm.PrepareHooks(context.Background())
 
 	// Insert policy programs before attaching entrypoints to tc hooks.
 	// Inserting a policy program is considered an attachment, since it makes

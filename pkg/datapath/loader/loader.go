@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/plugins"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -54,9 +55,10 @@ type loader struct {
 	configWriter       datapath.ConfigWriter
 	nodeConfigNotifier *manager.NodeConfigNotifier
 
-	db           *statedb.DB
-	devices      statedb.Table[*tables.Device]
-	routeManager *routeReconciler.DesiredRouteManager
+	db            *statedb.DB
+	devices       statedb.Table[*tables.Device]
+	routeManager  *routeReconciler.DesiredRouteManager
+	pluginManager plugins.Manager
 }
 
 type Params struct {
@@ -70,6 +72,7 @@ type Params struct {
 	ConfigWriter       datapath.ConfigWriter
 	NodeConfigNotifier *manager.NodeConfigNotifier
 	RouteManager       *routeReconciler.DesiredRouteManager
+	PluginManager      plugins.Manager
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
 	EPRestorer         promise.Promise[endpointstate.Restorer]
@@ -93,6 +96,7 @@ func newLoader(p Params) *loader {
 		configWriter:       p.ConfigWriter,
 		nodeConfigNotifier: p.NodeConfigNotifier,
 		routeManager:       p.RouteManager,
+		pluginManager:      p.PluginManager,
 
 		db:      p.DB,
 		devices: p.Devices,

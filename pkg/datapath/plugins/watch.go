@@ -5,16 +5,20 @@ package plugins
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 )
 
-func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[DatapathPlugin], endpointManager endpointmanager.EndpointManager) {
+func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[DatapathPlugin], endpointManager endpointmanager.EndpointManager, manager Manager, logger *slog.Logger) {
+	if manager == nil {
+		return
+	}
 
 	jg.Add(job.OneShot(
 		"follow",
@@ -31,10 +35,31 @@ func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[Datapa
 			for {
 				// Iterate over the changed objects.
 				changes, watch := changeIterator.Next(db.ReadTxn())
-				for change, rev := range changes {
+				for change, _ := range changes {
 					e := change.Object
-					fmt.Printf("Name: %s, AttachmentPolicy: %s (revision: %d, deleted: %v)\n",
-						e.Name, e.AttachmentPolicy, rev, change.Deleted)
+
+					if change.Deleted {
+						logger.Info("Datapath plugin deleted", logfields.Name, e.Name)
+
+						if err := manager.Unregister(e); err != nil {
+							logger.Error("Unregistering datapath plugin",
+								logfields.Error, err,
+								logfields.Name, e.Name,
+							)
+						}
+					} else {
+						logger.Info("Datapath plugin updated",
+							logfields.Name, e.Name,
+							logfields.Object, e,
+						)
+
+						if err := manager.Register(e); err != nil {
+							logger.Error("Registering datapath plugin",
+								logfields.Error, err,
+								logfields.Name, e.Name,
+							)
+						}
+					}
 				}
 
 				regenRequest := &regeneration.ExternalRegenerationMetadata{
