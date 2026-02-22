@@ -185,6 +185,11 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 	pm plugins.Manager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration,
 	spec *ebpf.CollectionSpec) error {
 
+	// 1) pm.PrepareHooks()
+	//   a) PrepareHooks() to all plugins.
+	//   b) Generate dispatcher programs and modify spec.
+
+	// 2) Load collection into the kernel.
 	var obj lxcObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
@@ -199,7 +204,9 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 	}
 	defer obj.Close()
 
-	pm.PrepareHooks(context.Background())
+	// 3) pm.LoadHooks()
+	//   a) LoadHooks() to all plugins.
+	//   b) Attach hook programs to dispatcher hooks in collection.
 
 	// Insert policy programs before attaching entrypoints to tc hooks.
 	// Inserting a policy program is considered an attachment, since it makes
