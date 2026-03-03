@@ -46,17 +46,17 @@ func (hs *HooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 	for hookTarget, hookTypes := range hs.hooks {
 		pre, sortErr := hookTypes[datapathplugins.HookType_PRE].sort()
 		if sortErr != nil {
-			errors.Join(err, fmt.Errorf("%s/%s: %w", hookTarget, datapathplugins.HookType_PRE, sortErr))
+			err = errors.Join(err, fmt.Errorf("%s/%s: %w", hookTarget, datapathplugins.HookType_PRE, sortErr))
 			continue
 		}
 		post, sortErr := hookTypes[datapathplugins.HookType_POST].sort()
 		if sortErr != nil {
-			errors.Join(err, fmt.Errorf("%s/%s: %w", hookTarget, datapathplugins.HookType_POST, sortErr))
+			err = errors.Join(err, fmt.Errorf("%s/%s: %w", hookTarget, datapathplugins.HookType_POST, sortErr))
 			continue
 		}
 
 		if err := hs.instrumentProgram(cs.Programs[hookTarget], pre, post, hooks); err != nil {
-			errors.Join(err, fmt.Errorf("instrumenting %s: %w", hookTarget, err))
+			err = errors.Join(err, fmt.Errorf("instrumenting %s: %w", hookTarget, err))
 			continue
 		}
 	}
@@ -71,7 +71,7 @@ func (hs *HooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 		return fmt.Errorf("unable to extract function BTF info for target program")
 	}
 
-	dispatcherInstructions := []asm.Instruction{}
+	var dispatcherInstructions []asm.Instruction
 
 	// Preserve ctx in R6, callee saved register.
 	asm.Mov.Reg(asm.R6, asm.R1)
@@ -87,6 +87,7 @@ func (hs *HooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 			AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
 				SubprogName: subprogName,
 			},
+			Type:   datapathplugins.HookType_PRE,
 			Target: ps.Name,
 		})
 	}
@@ -109,6 +110,7 @@ func (hs *HooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 			AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
 				SubprogName: subprogName,
 			},
+			Type:   datapathplugins.HookType_POST,
 			Target: ps.Name,
 		})
 	}

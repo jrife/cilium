@@ -17,6 +17,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -124,7 +125,7 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, xdpDevs []string, xdpMo
 }
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
-func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode) error {
+func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -155,7 +156,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	if err := loadAssignAttach(logger, xdpMode, iface, spec, lnc); err != nil {
+	if err := loadAssignAttach(ctx, logger, collLoader, xdpMode, iface, spec, lnc); err != nil {
 		// Usually, a jumbo MTU causes the invalid argument error, e.g.:
 		// "create link: invalid argument" or "update link: invalid argument"
 		if !errors.Is(err, unix.EINVAL) {
@@ -167,14 +168,32 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		for _, prog := range spec.Programs {
 			prog.Flags |= unix.BPF_F_XDP_HAS_FRAGS
 		}
-		return loadAssignAttach(logger, xdpMode, iface, spec, lnc)
+		return loadAssignAttach(ctx, logger, collLoader, xdpMode, iface, spec, lnc)
 	}
 	return nil
 }
 
-func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration) error {
+type attachmentContextXDP struct {
+	device netlink.Link
+}
+
+func (ac *attachmentContextXDP) AttachmentContext() *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{
+		Context: &datapathplugins.AttachmentContext_Tc{
+			Tc: &datapathplugins.AttachmentContext_TC{
+				EpConfig: &datapathplugins.AttachmentContext_TC_EndpointConfig{},
+			},
+		},
+	}
+}
+
+func (ac *attachmentContextXDP) LinksDirs() []string {
+	return []string{bpffsDevicePluginLinksDir(bpf.CiliumPath(), ac.device)}
+}
+
+func loadAssignAttach(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration) error {
 	var obj xdpObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: xdpConfiguration(lnc, iface),
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
@@ -183,10 +202,13 @@ func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link,
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
+	}, lnc, &attachmentContextXDP{
+		device: iface,
 	})
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	defer obj.Close()
 
 	if err := attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,

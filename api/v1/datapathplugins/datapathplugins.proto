@@ -119,7 +119,7 @@ message LoadHooksRequest {
     
     Collection collection = 1;
     LocalNodeConfig local_node_config = 2;
-    AttachmentContext attachment_context= 3;
+    AttachmentContext attachment_context = 3;
     repeated Hook hooks = 4;
     string cookie = 5;
 }

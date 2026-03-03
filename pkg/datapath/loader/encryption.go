@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -36,7 +37,7 @@ func encryptionConfiguration(lnc *datapath.LocalNodeConfiguration) (configs []an
 	return configs
 }
 
-func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, links []netlink.Link) error {
+func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, links []netlink.Link) error {
 	if err := compileNetwork(ctx, logger); err != nil {
 		return fmt.Errorf("compiling encrypt program: %w", err)
 	}
@@ -47,7 +48,7 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *da
 	}
 
 	var obj networkObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -55,10 +56,13 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *da
 		// A single bpf_network.o Collection is attached to multiple devices, only
 		// store a single config at the root of the bpf statedir.
 		ConfigDumpPath: bpfStateDeviceDir(networkConfig),
+	}, lnc, &attachmentContextEncryption{
+		ifaces: links,
 	})
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	defer obj.Close()
 
 	var errs error
@@ -83,4 +87,22 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *da
 	}
 
 	return nil
+}
+
+type attachmentContextEncryption struct {
+	ifaces []netlink.Link
+}
+
+func (ac *attachmentContextEncryption) AttachmentContext() *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{}
+}
+
+func (ac *attachmentContextEncryption) LinksDirs() []string {
+	dirs := make([]string, len(ac.ifaces))
+
+	for i, iface := range ac.ifaces {
+		dirs[i] = bpffsDevicePluginLinksDir(bpf.CiliumPath(), iface)
+	}
+
+	return dirs
 }

@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/ebpf"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,11 +20,16 @@ const (
 	sockFileName = "plugin.sock"
 )
 
+type Plugin interface {
+	datapathplugins.DatapathPluginClient
+	Name() string
+	AttachmentPolicy() api_v2alpha1.CiliumDatapathPluginAttachmentPolicy
+}
+
 type Manager interface {
 	Register(datapathPlugin DatapathPlugin) error
 	Unregister(datapathPlugin DatapathPlugin) error
-	ForEach(func(datapathPlugin DatapathPlugin, client datapathplugins.DatapathPluginClient) error) error
-	PrepareHooks(ctx context.Context, spec *ebpf.CollectionSpec, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration) (map[string]*datapathplugins.LoadHooksRequest, error)
+	Plugins() map[string]Plugin
 }
 
 type manager struct {
@@ -61,10 +64,10 @@ func (m *manager) Register(datapathPlugin DatapathPlugin) error {
 	}
 
 	m.registry[datapathPlugin.Name] = &plugin{
-		DatapathPlugin: datapathPlugin,
-		client:         datapathplugins.NewDatapathPluginClient(c),
-		conn:           c,
-		logger:         m.logger.With("plugin", datapathPlugin.Name),
+		DatapathPlugin:       datapathPlugin,
+		DatapathPluginClient: datapathplugins.NewDatapathPluginClient(c),
+		conn:                 c,
+		logger:               m.logger.With("plugin", datapathPlugin.Name),
 	}
 
 	go m.registry[datapathPlugin.Name].monitor()
@@ -86,136 +89,33 @@ func (m *manager) Unregister(datapathPlugin DatapathPlugin) error {
 	return p.close()
 }
 
-func (m *manager) ForEach(do func(plugin DatapathPlugin, client datapathplugins.DatapathPluginClient) error) error {
+func (m *manager) Plugins() map[string]Plugin {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for _, plugin := range m.registry {
-		if err := do(plugin.DatapathPlugin, plugin.client); err != nil {
-			return err
-		}
+	snapshot := make(map[string]Plugin)
+
+	for name, plugin := range m.registry {
+		snapshot[name] = plugin
 	}
 
-	return nil
-}
-
-func (m *manager) PrepareHooks(ctx context.Context, spec *ebpf.CollectionSpec, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration) (map[string]*datapathplugins.LoadHooksRequest, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	req := &datapathplugins.PrepareHooksRequest{
-		AttachmentContext: endpointAttachmentContext(ep),
-		LocalNodeConfig:   localNodeConfig(lnc),
-		Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-			Programs: make([]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec, 0, len(spec.Programs)),
-		},
-	}
-
-	for name := range spec.Programs {
-		req.Collection.Programs = append(req.Collection.Programs, &datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
-			Name: name,
-		})
-	}
-
-	type result struct {
-		plugin *plugin
-		err    error
-		resp   *datapathplugins.PrepareHooksResponse
-	}
-
-	results := make(chan result)
-	for _, p := range m.registry {
-		go func(p *plugin) {
-			resp, err := p.client.PrepareHooks(ctx, req)
-			results <- result{plugin: p, err: err, resp: resp}
-		}(p)
-	}
-
-	var err error
-	responses := make(map[string]*datapathplugins.PrepareHooksResponse)
-	hooksSpec := newHooksSpec()
-
-	for r := range results {
-		if r.err != nil {
-			m.logger.Error("PrepareHooks() failed",
-				logfields.Error, r.err,
-				"plugin", r.plugin.Name,
-			)
-
-			if r.plugin.AttachmentPolicy == api_v2alpha1.AttachmentPolicyAlways {
-				err = errors.Join(err, fmt.Errorf("%s: PrepareHooks(): %w", r.plugin.Name, r.err))
-			}
-
-			continue
-		}
-
-		m.logger.Debug("PrepareHooks() succeeded", "plugin", r.plugin.Name)
-		responses[r.plugin.Name] = r.resp
-
-	process_hooks:
-		for _, h := range r.resp.Hooks {
-			ps := spec.Programs[h.Target]
-			if ps == nil {
-				err = errors.Join(err, fmt.Errorf("%s: PrepareHooks(): target program \"%s\" does not exist in the collection spec", r.plugin.Name, h.Target))
-
-				continue
-			}
-
-			if h.Type != datapathplugins.HookType_PRE && h.Type != datapathplugins.HookType_POST {
-				err = errors.Join(err, fmt.Errorf("%s: PrepareHooks(): invalid hook type %v", r.plugin.Name, h.Type))
-
-				continue
-			}
-
-			hooksSpec.hook(ps.Name, h.Type).addNode(r.plugin.Name)
-
-			for _, c := range h.Constraints {
-				otherPlugin := m.registry[c.Plugin]
-				if otherPlugin == nil {
-					m.logger.Debug("PrepareHooks() constraint references unknown plugin",
-						"plugin", r.plugin.Name,
-						"otherPlugin", c.Plugin,
-					)
-
-					continue
-				}
-
-				switch c.Order {
-				case datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE:
-					hooksSpec.hook(ps.Name, h.Type).before(r.plugin.Name, otherPlugin.Name)
-				case datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_AFTER:
-					hooksSpec.hook(ps.Name, h.Type).after(r.plugin.Name, otherPlugin.Name)
-				default:
-					err = errors.Join(err, fmt.Errorf("%s: PrepareHooks(): invalid ordering constraint: %v", r.plugin.Name, h.Type))
-					continue process_hooks
-				}
-			}
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	loadHooksRequests, err := hooksSpec.instrumentCollection(spec)
-	if err != nil {
-		return nil, fmt.Errorf("instrumenting collection: %w", err)
-	}
-
-	for plugin, req := range loadHooksRequests {
-		prepareHooksResp := responses[plugin]
-		req.Cookie = prepareHooksResp.Cookie
-	}
-
-	return loadHooksRequests, nil
+	return snapshot
 }
 
 type plugin struct {
 	DatapathPlugin
-	client datapathplugins.DatapathPluginClient
+	datapathplugins.DatapathPluginClient
 	conn   *grpc.ClientConn
 	cancel func()
 	logger *slog.Logger
+}
+
+func (p *plugin) Name() string {
+	return p.DatapathPlugin.Name
+}
+
+func (p *plugin) AttachmentPolicy() api_v2alpha1.CiliumDatapathPluginAttachmentPolicy {
+	return p.DatapathPlugin.AttachmentPolicy
 }
 
 func (p *plugin) close() error {

@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -41,7 +42,7 @@ func overlayConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Lin
 	return configs
 }
 
-func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, link netlink.Link) error {
+func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, link netlink.Link) error {
 	if err := compileOverlay(ctx, logger); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
@@ -52,7 +53,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	}
 
 	var obj overlayObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: overlayConfiguration(lnc, link),
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
@@ -61,10 +62,13 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(link.Attrs().Name), overlayConfig),
+	}, lnc, &attachmentContextOverlay{
+		device: link,
 	})
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), link)
@@ -82,4 +86,16 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	}
 
 	return nil
+}
+
+type attachmentContextOverlay struct {
+	device netlink.Link
+}
+
+func (ac *attachmentContextOverlay) AttachmentContext() *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{}
+}
+
+func (ac *attachmentContextOverlay) LinksDirs() []string {
+	return []string{bpffsDevicePluginLinksDir(bpf.CiliumPath(), ac.device)}
 }

@@ -7,15 +7,14 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 )
 
-func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[DatapathPlugin], endpointManager endpointmanager.EndpointManager, manager Manager, logger *slog.Logger) {
+func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[DatapathPlugin], orchestrator datapath.Orchestrator, manager Manager, logger *slog.Logger) {
 	if manager == nil {
 		return
 	}
@@ -62,12 +61,9 @@ func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[Datapa
 					}
 				}
 
-				regenRequest := &regeneration.ExternalRegenerationMetadata{
-					Reason:            "Datapath plugins updated",
-					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-					ParentContext:     ctx,
+				if err := orchestrator.Reinitialize(ctx); err != nil {
+					logger.Error("Failed to reinitialize datapath", logfields.Error, err)
 				}
-				endpointManager.RegenerateAllEndpoints(regenRequest).Wait()
 
 				// Wait until there's new changes to consume.
 				select {

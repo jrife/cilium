@@ -4,6 +4,7 @@
 package socketlb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/cilium/ebpf"
 
+	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/datapath/config"
@@ -51,13 +53,24 @@ func cgroupLinkPath() string {
 	return filepath.Join(bpf.CiliumPath(), Subsystem, "links/cgroup")
 }
 
+type attachmentContextSocket struct {
+}
+
+func (ac *attachmentContextSocket) AttachmentContext() *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{}
+}
+
+func (ac *attachmentContextSocket) LinksDirs() []string {
+	return []string{""}
+}
+
 // Enable attaches necessary bpf programs for socketlb based on ciliums config.
 //
 // On restart, Enable can also detach unnecessary programs if specific configuration
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration) error {
+func Enable(ctx context.Context, logger *slog.Logger, sysctl sysctl.Sysctl, collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
@@ -71,12 +84,12 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
-	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
+	coll, commit, cleanup, err := collLoader.Load(ctx, logger, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants: cfg,
-	})
+	}, lnc, &attachmentContextSocket{})
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
@@ -86,6 +99,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 	if err != nil {
 		return fmt.Errorf("failed loading eBPF collection into the kernel: %w", err)
 	}
+	defer cleanup()
 	defer coll.Close()
 
 	// Map a program name to its enabled status. Programs disabled by default.

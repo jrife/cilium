@@ -46,6 +46,10 @@ func bpffsDeviceLinksDir(base string, device netlink.Link) string {
 	return filepath.Join(bpffsDeviceDir(base, device), "links")
 }
 
+func bpffsDevicePluginLinksDir(base string, device netlink.Link) string {
+	return filepath.Join(bpffsDeviceDir(base, device), "plugin_links")
+}
+
 // bpffsEndpointsDir returns the path to the 'endpoints' directory on bpffs, usually
 // /sys/fs/bpf/cilium/endpoints. It does not ensure the directory exists.
 //
@@ -73,6 +77,25 @@ func bpffsEndpointDir(base string, ep datapath.Endpoint) string {
 // during tests.
 func bpffsEndpointLinksDir(base string, ep datapath.Endpoint) string {
 	return filepath.Join(bpffsEndpointDir(base, ep), "links")
+}
+
+// Keep this separate from bpffsEndpointLinksDir to ensure that when Unload()
+// runs and calls bpf.Remove() we don't accidentally unpin plugin hook programs
+// before the main attachment, since this would lead to undefined behavior.
+func bpffsEndpointPluginLinksDir(base string, ep datapath.Endpoint) string {
+	return filepath.Join(bpffsEndpointDir(base, ep), "plugin_links")
+}
+
+func bpffsPluginsOperationsDir(base string) string {
+	return filepath.Join(base, "plugins")
+}
+
+func bpffsPluginOperationsDir(base, plugin string) string {
+	return filepath.Join(bpffsPluginsOperationsDir(base), plugin)
+}
+
+func bpffsPluginOperationDir(base, plugin, id string) string {
+	return filepath.Join(bpffsPluginOperationsDir(base, plugin), id)
 }
 
 // bpfStateDeviceDir returns the path to the per-device directory in the Cilium

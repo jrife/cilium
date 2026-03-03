@@ -224,7 +224,7 @@ func (l *loader) reinitializeEncryption(ctx context.Context, lnc *datapath.Local
 		return nil
 	}
 
-	if err := replaceEncryptionDatapath(ctx, l.logger, lnc, attach); err != nil {
+	if err := replaceEncryptionDatapath(ctx, l.logger, l.bpfCollectionLoader, lnc, attach); err != nil {
 		return fmt.Errorf("failed to replace encryption datapath: %w", err)
 	}
 
@@ -250,7 +250,7 @@ func linkNames(links []netlink.Link) []string {
 	return names
 }
 
-func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config) error {
+func reinitializeOverlay(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config) error {
 	// tunnelConfig.EncapProtocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.EncapProtocol() == tunnel.Disabled {
@@ -268,14 +268,14 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", iface, err)
 	}
 
-	if err := replaceOverlayDatapath(ctx, logger, lnc, link); err != nil {
+	if err := replaceOverlayDatapath(ctx, logger, collLoader, lnc, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
 	}
 
 	return nil
 }
 
-func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration) (err error) {
+func reinitializeWireguard(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration) (err error) {
 	if !lnc.EnableWireguard {
 		cleanCallsMaps("cilium_calls_wireguard*")
 
@@ -289,13 +289,13 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
 	}
 
-	if err := replaceWireguardDatapath(ctx, logger, lnc, link); err != nil {
+	if err := replaceWireguardDatapath(ctx, logger, collLoader, lnc, link); err != nil {
 		return fmt.Errorf("failed to load wireguard programs: %w", err)
 	}
 	return
 }
 
-func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, devices []string) error {
+func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, devices []string) error {
 	xdpConfig := lnc.XDPConfig
 	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpf.CiliumPath())
 	if xdpConfig.Disabled() {
@@ -310,7 +310,7 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapa
 			continue
 		}
 
-		if err := compileAndLoadXDPProg(ctx, logger, lnc, dev, xdpConfig.Mode()); err != nil {
+		if err := compileAndLoadXDPProg(ctx, logger, collLoader, lnc, dev, xdpConfig.Mode()); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
 				logger.Info("Failed to attach XDP program, ignoring due to best-effort mode",
 					logfields.Error, err,
@@ -371,6 +371,10 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	// BPF file system setup.
 	if err := bpf.MkdirBPF(bpf.TCGlobalsPath()); err != nil {
 		return fmt.Errorf("failed to create bpffs directory: %w", err)
+	}
+
+	if err := l.initializePluginsDir(); err != nil {
+		return fmt.Errorf("initializing plugins bpffs directories: %w", err)
 	}
 
 	// Datapath initialization
@@ -448,7 +452,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		if err := compileWithOptions(ctx, l.logger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
 		}
-		if err := socketlb.Enable(l.logger, l.sysctl, lnc); err != nil {
+		if err := socketlb.Enable(ctx, l.logger, l.sysctl, l.bpfCollectionLoader, lnc); err != nil {
 			return err
 		}
 	} else {
@@ -457,7 +461,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := reinitializeXDPLocked(ctx, l.logger, lnc, devices); err != nil {
+	if err := reinitializeXDPLocked(ctx, l.logger, l.bpfCollectionLoader, lnc, devices); err != nil {
 		logging.Fatal(l.logger, "Failed to compile XDP program", logfields.Error, err)
 	}
 
@@ -474,11 +478,11 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		return err
 	}
 
-	if err := reinitializeWireguard(ctx, l.logger, lnc); err != nil {
+	if err := reinitializeWireguard(ctx, l.logger, l.bpfCollectionLoader, lnc); err != nil {
 		return err
 	}
 
-	if err := reinitializeOverlay(ctx, l.logger, lnc, tunnelConfig); err != nil {
+	if err := reinitializeOverlay(ctx, l.logger, l.bpfCollectionLoader, lnc, tunnelConfig); err != nil {
 		return err
 	}
 

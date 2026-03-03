@@ -23,7 +23,6 @@ import (
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	"github.com/cilium/cilium/pkg/datapath/plugins"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -84,7 +83,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 	if ep.IsHost() {
 		// Reload bpf programs on cilium_host and cilium_net.
 		stats.BpfLoadProg.Start()
-		err = reloadHostEndpoint(l.logger, ep, lnc, spec)
+		err = reloadHostEndpoint(ctx, l.logger, l.bpfCollectionLoader, ep, lnc, spec)
 		stats.BpfLoadProg.End(err == nil)
 
 		l.hostDpInitializedOnce.Do(func() {
@@ -97,7 +96,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(l.logger, l.db, l.devices, l.routeManager, l.pluginManager, ep, lnc, spec)
+	err = reloadEndpoint(ctx, l.logger, l.db, l.devices, l.routeManager, l.bpfCollectionLoader, ep, lnc, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -180,33 +179,25 @@ func endpointMapRenames(ep datapath.EndpointConfiguration) map[string]string {
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
+func reloadEndpoint(ctx context.Context, logger *slog.Logger, db *statedb.DB,
 	devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager,
-	pm plugins.Manager, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration,
+	collLoader bpf.CollectionLoader, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration,
 	spec *ebpf.CollectionSpec) error {
 
-	// 1) pm.PrepareHooks()
-	//   a) PrepareHooks() to all plugins.
-	//   b) Generate dispatcher programs and modify spec.
-
-	// 2) Load collection into the kernel.
 	var obj lxcObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:      endpointConfiguration(ep, lnc),
 		MapRenames:     endpointMapRenames(ep),
 		ConfigDumpPath: filepath.Join(ep.StateDir(), endpointConfig),
-	})
+	}, lnc, &attachmentContextLXC{ep: ep})
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	defer obj.Close()
-
-	// 3) pm.LoadHooks()
-	//   a) LoadHooks() to all plugins.
-	//   b) Attach hook programs to dispatcher hooks in collection.
 
 	// Insert policy programs before attaching entrypoints to tc hooks.
 	// Inserting a policy program is considered an attachment, since it makes

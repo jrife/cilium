@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -41,7 +42,7 @@ func wireguardConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.L
 	return configs
 }
 
-func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
+func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
 	if err := compileWireguard(ctx, logger); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
@@ -52,7 +53,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	}
 
 	var obj wireguardObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: wireguardConfiguration(lnc, device),
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
@@ -61,10 +62,13 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(device.Attrs().Name), wireguardConfig),
+	}, lnc, &attachmentContextWireguard{
+		device: device,
 	})
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
@@ -93,4 +97,16 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 	return nil
+}
+
+type attachmentContextWireguard struct {
+	device netlink.Link
+}
+
+func (ac *attachmentContextWireguard) AttachmentContext() *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{}
+}
+
+func (ac *attachmentContextWireguard) LinksDirs() []string {
+	return []string{bpffsDevicePluginLinksDir(bpf.CiliumPath(), ac.device)}
 }
