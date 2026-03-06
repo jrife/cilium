@@ -48,7 +48,11 @@ func newDPPListerWatcher(cs client.Clientset) dppListerWatcher {
 	return k8sUtils.ListerWatcherFromTyped(cs.CiliumV2alpha1().CiliumDatapathPlugins())
 }
 
-func registerDPPReflector(db *statedb.DB, log *slog.Logger, jg job.Group, lw dppListerWatcher, dpps statedb.RWTable[DatapathPlugin]) {
+func registerDPPReflector(db *statedb.DB, log *slog.Logger, jg job.Group, lw dppListerWatcher, dpps statedb.RWTable[DatapathPlugin], registry Registry) {
+	if !registry.IsEnabled() {
+		return
+	}
+
 	k8s.RegisterReflector(jg, db,
 		k8s.ReflectorConfig[DatapathPlugin]{
 			Name:          "dpps",

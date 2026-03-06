@@ -14,8 +14,8 @@ import (
 	"github.com/cilium/statedb"
 )
 
-func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[DatapathPlugin], orchestrator datapath.Orchestrator, manager Manager, logger *slog.Logger) {
-	if manager == nil {
+func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[DatapathPlugin], orchestrator datapath.Orchestrator, registry Registry, logger *slog.Logger) {
+	if !registry.IsEnabled() {
 		return
 	}
 
@@ -40,7 +40,7 @@ func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[Datapa
 					if change.Deleted {
 						logger.Info("Datapath plugin deleted", logfields.Name, e.Name)
 
-						if err := manager.Unregister(e); err != nil {
+						if err := registry.Unregister(e); err != nil {
 							logger.Error("Unregistering datapath plugin",
 								logfields.Error, err,
 								logfields.Name, e.Name,
@@ -52,7 +52,7 @@ func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[Datapa
 							logfields.Object, e,
 						)
 
-						if err := manager.Register(e); err != nil {
+						if err := registry.Register(e); err != nil {
 							logger.Error("Registering datapath plugin",
 								logfields.Error, err,
 								logfields.Name, e.Name,

@@ -50,18 +50,14 @@ var Cell = cell.Module(
 	cell.Provide(
 		// Provide Table[*DatapathPlugin].
 		statedb.RWTable[DatapathPlugin].ToTable,
-		newDatapathPluginManager,
+		newRegistry,
 	),
-
 	cell.ProvidePrivate(
 		newDPPListerWatcher,
 		NewDPPTable,
 	),
-
 	cell.Invoke(
 		registerDPPReflector,
 		registerDPPWatcher,
 	),
-
-	// cell.Provide(dppAPI),
 )

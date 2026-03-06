@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -62,9 +61,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, collLoad
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(device.Attrs().Name), wireguardConfig),
-	}, lnc, &attachmentContextWireguard{
-		device: device,
-	})
+	}, lnc, attachmentContextWireguard(device), bpffsDevicePluginLinksDirs(bpf.CiliumPath(), device))
 	if err != nil {
 		return err
 	}
@@ -97,16 +94,4 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, collLoad
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 	return nil
-}
-
-type attachmentContextWireguard struct {
-	device netlink.Link
-}
-
-func (ac *attachmentContextWireguard) AttachmentContext() *datapathplugins.AttachmentContext {
-	return &datapathplugins.AttachmentContext{}
-}
-
-func (ac *attachmentContextWireguard) LinksDirs() []string {
-	return []string{bpffsDevicePluginLinksDir(bpf.CiliumPath(), ac.device)}
 }

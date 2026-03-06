@@ -57,17 +57,6 @@ func cgroupPluginsLinkPath() string {
 	return filepath.Join(bpf.CiliumPath(), Subsystem, "plugin_links/cgroup")
 }
 
-type attachmentContextSocket struct {
-}
-
-func (ac *attachmentContextSocket) AttachmentContext() *datapathplugins.AttachmentContext {
-	return &datapathplugins.AttachmentContext{}
-}
-
-func (ac *attachmentContextSocket) LinksDirs() []string {
-	return []string{cgroupPluginsLinkPath()}
-}
-
 // Enable attaches necessary bpf programs for socketlb based on ciliums config.
 //
 // On restart, Enable can also detach unnecessary programs if specific configuration
@@ -93,7 +82,7 @@ func Enable(ctx context.Context, logger *slog.Logger, sysctl sysctl.Sysctl, coll
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants: cfg,
-	}, lnc, &attachmentContextSocket{})
+	}, lnc, &datapathplugins.AttachmentContext{}, []string{cgroupPluginsLinkPath()})
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {

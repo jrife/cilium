@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -62,9 +61,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, collLoader
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(link.Attrs().Name), overlayConfig),
-	}, lnc, &attachmentContextOverlay{
-		device: link,
-	})
+	}, lnc, attachmentContextOverlay(link), bpffsDevicePluginLinksDirs(bpf.CiliumPath(), link))
 	if err != nil {
 		return err
 	}
@@ -86,16 +83,4 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, collLoader
 	}
 
 	return nil
-}
-
-type attachmentContextOverlay struct {
-	device netlink.Link
-}
-
-func (ac *attachmentContextOverlay) AttachmentContext() *datapathplugins.AttachmentContext {
-	return &datapathplugins.AttachmentContext{}
-}
-
-func (ac *attachmentContextOverlay) LinksDirs() []string {
-	return []string{bpffsDevicePluginLinksDir(bpf.CiliumPath(), ac.device)}
 }

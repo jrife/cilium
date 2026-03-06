@@ -17,7 +17,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -173,24 +172,6 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, collLoader 
 	return nil
 }
 
-type attachmentContextXDP struct {
-	device netlink.Link
-}
-
-func (ac *attachmentContextXDP) AttachmentContext() *datapathplugins.AttachmentContext {
-	return &datapathplugins.AttachmentContext{
-		Context: &datapathplugins.AttachmentContext_Tc{
-			Tc: &datapathplugins.AttachmentContext_TC{
-				EpConfig: &datapathplugins.AttachmentContext_TC_EndpointConfig{},
-			},
-		},
-	}
-}
-
-func (ac *attachmentContextXDP) LinksDirs() []string {
-	return []string{bpffsDevicePluginLinksDir(bpf.CiliumPath(), ac.device)}
-}
-
 func loadAssignAttach(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration) error {
 	var obj xdpObjects
 	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
@@ -202,9 +183,7 @@ func loadAssignAttach(ctx context.Context, logger *slog.Logger, collLoader bpf.C
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
-	}, lnc, &attachmentContextXDP{
-		device: iface,
-	})
+	}, lnc, attachmentContextXDP(iface), bpffsDevicePluginLinksDirs(bpf.CiliumPath(), iface))
 	if err != nil {
 		return err
 	}

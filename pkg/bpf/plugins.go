@@ -9,15 +9,7 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type AttachmentContext interface {
-	AttachmentContext() *datapathplugins.AttachmentContext
-	// TODO: With encryption, the collection is loaded once but pinned and
-	// attached to multiple devices. Really, this needs to be able to return
-	// a set of link directories.
-	LinksDirs() []string
-}
-
 type CollectionLoader interface {
-	Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext AttachmentContext) (*ebpf.Collection, func() error, func(), error)
-	LoadAndAssign(ctx context.Context, logger *slog.Logger, to any, spec *ebpf.CollectionSpec, opts *CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext AttachmentContext) (func() error, func(), error)
+	Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (*ebpf.Collection, func() error, func(), error)
+	LoadAndAssign(ctx context.Context, logger *slog.Logger, to any, spec *ebpf.CollectionSpec, opts *CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (func() error, func(), error)
 }

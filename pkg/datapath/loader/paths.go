@@ -54,6 +54,16 @@ func bpffsDevicePluginLinksDir(base string, device netlink.Link) string {
 	return filepath.Join(bpffsDeviceDir(base, device), "plugin_links")
 }
 
+func bpffsDevicePluginLinksDirs(base string, devices ...netlink.Link) []string {
+	dirs := make([]string, len(devices))
+
+	for i, iface := range devices {
+		dirs[i] = bpffsDevicePluginLinksDir(base, iface)
+	}
+
+	return dirs
+}
+
 // bpffsEndpointsDir returns the path to the 'endpoints' directory on bpffs, usually
 // /sys/fs/bpf/cilium/endpoints. It does not ensure the directory exists.
 //

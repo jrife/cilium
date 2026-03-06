@@ -26,28 +26,41 @@ type Plugin interface {
 	AttachmentPolicy() api_v2alpha1.CiliumDatapathPluginAttachmentPolicy
 }
 
-type Manager interface {
+type Registry interface {
+	IsEnabled() bool
 	Register(datapathPlugin DatapathPlugin) error
 	Unregister(datapathPlugin DatapathPlugin) error
 	Plugins() map[string]Plugin
 }
 
-type manager struct {
+type registry struct {
 	mu                     sync.Mutex
+	enabled                bool
 	logger                 *slog.Logger
 	registry               map[string]*plugin
 	datapathPluginStateDir string
 }
 
-func newManager(logger *slog.Logger, c datapathPluginsConfig) *manager {
-	return &manager{
+func newRegistry(logger *slog.Logger, config datapathPluginsConfig) Registry {
+	if !config.DatapathPluginsEnabled {
+		logger.Info("Disabling datapath plugins.")
+	} else {
+		logger.Info("Enabling datapath plugins", logfields.Path, config.DatapathPluginsStateDir)
+	}
+
+	return &registry{
+		enabled:                config.DatapathPluginsEnabled,
 		logger:                 logger,
 		registry:               make(map[string]*plugin),
-		datapathPluginStateDir: c.DatapathPluginsStateDir,
+		datapathPluginStateDir: config.DatapathPluginsStateDir,
 	}
 }
 
-func (m *manager) Register(datapathPlugin DatapathPlugin) error {
+func (m *registry) IsEnabled() bool {
+	return m.enabled
+}
+
+func (m *registry) Register(datapathPlugin DatapathPlugin) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -75,7 +88,7 @@ func (m *manager) Register(datapathPlugin DatapathPlugin) error {
 	return nil
 }
 
-func (m *manager) Unregister(datapathPlugin DatapathPlugin) error {
+func (m *registry) Unregister(datapathPlugin DatapathPlugin) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -89,7 +102,7 @@ func (m *manager) Unregister(datapathPlugin DatapathPlugin) error {
 	return p.close()
 }
 
-func (m *manager) Plugins() map[string]Plugin {
+func (m *registry) Plugins() map[string]Plugin {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -138,18 +151,6 @@ func (p *plugin) monitor() {
 	}
 
 	p.logger.Info("Shutting down datapath plugin monitor")
-}
-
-func newDatapathPluginManager(logger *slog.Logger, config datapathPluginsConfig) (Manager, error) {
-	if !config.DatapathPluginsEnabled {
-		logger.Info("Disabling datapath plugins.")
-
-		return nil, nil
-	}
-
-	logger.Info("Enabling datapath plugins", logfields.Path, config.DatapathPluginsStateDir)
-
-	return newManager(logger, config), nil
 }
 
 func endpointAttachmentContext(ep datapath.Endpoint) *datapathplugins.AttachmentContext {

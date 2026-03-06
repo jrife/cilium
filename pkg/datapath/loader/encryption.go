@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -56,9 +55,7 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, collLoa
 		// A single bpf_network.o Collection is attached to multiple devices, only
 		// store a single config at the root of the bpf statedir.
 		ConfigDumpPath: bpfStateDeviceDir(networkConfig),
-	}, lnc, &attachmentContextEncryption{
-		ifaces: links,
-	})
+	}, lnc, attachmentContextEncryption(links), bpffsDevicePluginLinksDirs(bpf.CiliumPath(), links...))
 	if err != nil {
 		return err
 	}
@@ -87,22 +84,4 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, collLoa
 	}
 
 	return nil
-}
-
-type attachmentContextEncryption struct {
-	ifaces []netlink.Link
-}
-
-func (ac *attachmentContextEncryption) AttachmentContext() *datapathplugins.AttachmentContext {
-	return &datapathplugins.AttachmentContext{}
-}
-
-func (ac *attachmentContextEncryption) LinksDirs() []string {
-	dirs := make([]string, len(ac.ifaces))
-
-	for i, iface := range ac.ifaces {
-		dirs[i] = bpffsDevicePluginLinksDir(bpf.CiliumPath(), iface)
-	}
-
-	return dirs
 }

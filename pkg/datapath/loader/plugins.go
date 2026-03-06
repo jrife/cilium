@@ -22,11 +22,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-type attachmentContextLXC struct {
-	ep datapath.Endpoint
-}
-
-func (ac *attachmentContextLXC) AttachmentContext() *datapathplugins.AttachmentContext {
+func attachmentContextLXC(ep datapath.Endpoint) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
 		Context: &datapathplugins.AttachmentContext_Tc{
 			Tc: &datapathplugins.AttachmentContext_TC{
@@ -36,35 +32,32 @@ func (ac *attachmentContextLXC) AttachmentContext() *datapathplugins.AttachmentC
 	}
 }
 
-func (ac *attachmentContextLXC) LinksDirs() []string {
-	return []string{bpffsEndpointPluginLinksDir(bpf.CiliumPath(), ac.ep)}
+func attachmentContextHost(ep datapath.Endpoint, device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{}
 }
 
-type attachmentContextHost struct {
-	ep     datapath.Endpoint
-	device netlink.Link
+func attachmentContextOverlay(device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{}
 }
 
-func (ac *attachmentContextHost) AttachmentContext() *datapathplugins.AttachmentContext {
-	return &datapathplugins.AttachmentContext{
-		Context: &datapathplugins.AttachmentContext_Tc{
-			Tc: &datapathplugins.AttachmentContext_TC{
-				EpConfig: &datapathplugins.AttachmentContext_TC_EndpointConfig{},
-			},
-		},
-	}
+func attachmentContextXDP(device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{}
 }
 
-func (ac *attachmentContextHost) LinksDirs() []string {
-	return []string{bpffsDevicePluginLinksDir(bpf.CiliumPath(), ac.device)}
+func attachmentContextWireguard(device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{}
 }
 
-type pluginCoordinator struct {
-	registry plugins.Manager
+func attachmentContextEncryption(ifaces []netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{}
 }
 
-func (pc *pluginCoordinator) LoadAndAssign(ctx context.Context, logger *slog.Logger, to any, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext bpf.AttachmentContext) (func() error, func(), error) {
-	coll, commit, cleanupLinks, err := pc.Load(ctx, logger, spec, opts, lnc, attachmentContext)
+type pluginCollectionLoader struct {
+	registry plugins.Registry
+}
+
+func (l *loader) LoadAndAssign(ctx context.Context, logger *slog.Logger, to any, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (func() error, func(), error) {
+	coll, commit, cleanupLinks, err := l.Load(ctx, logger, spec, opts, lnc, attachmentContext, linksDirs)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
@@ -84,9 +77,45 @@ func (pc *pluginCoordinator) LoadAndAssign(ctx context.Context, logger *slog.Log
 	return commit, cleanupLinks, nil
 }
 
-func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext bpf.AttachmentContext) (_ *ebpf.Collection, _ func() error, _ func(), err error) {
+func (l *loader) Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (coll *ebpf.Collection, commit func() error, cleanup func(), err error) {
+	if !l.pluginRegistry.IsEnabled() {
+		// If plugins were previously enabled, clean up any lingering
+		// pinned links in the plugin link directories.
+		if err := purgeLinksDirs(linksDirs); err != nil {
+			logger.Error("Failed to purge link dirs", logfields.Error, err)
+		}
+
+		coll, commit, err = bpf.LoadCollection(logger, spec, opts)
+		return coll, commit, func() {}, err
+	}
+
+	pluginMap := l.pluginRegistry.Plugins()
+	loadHooksRequests, err := prepareHooks(ctx, logger, pluginMap, spec, lnc, attachmentContext)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("preparing hooks: %w", err)
+	}
+
+	coll, commit, err = bpf.LoadCollection(logger, spec, opts)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("loading collection: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			coll.Close()
+		}
+	}()
+
+	commit, cleanup, err = loadHooks(ctx, logger, coll, commit, pluginMap, loadHooksRequests, attachmentContext, linksDirs)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("loading hooks: %w", err)
+	}
+
+	return coll, commit, cleanup, nil
+}
+
+func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string]plugins.Plugin, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext) (_ map[string]*datapathplugins.LoadHooksRequest, err error) {
 	req := &datapathplugins.PrepareHooksRequest{
-		AttachmentContext: attachmentContext.AttachmentContext(),
+		AttachmentContext: attachmentContext,
 		LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 		Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
 			Programs: make([]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec, 0, len(spec.Programs)),
@@ -106,7 +135,6 @@ func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec
 	}
 
 	prepareResults := make(chan prepareResult)
-	pluginMap := pc.registry.Plugins()
 	for _, p := range pluginMap {
 		go func(p plugins.Plugin) {
 			resp, err := p.PrepareHooks(ctx, req)
@@ -122,7 +150,7 @@ func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec
 		select {
 		case r = <-prepareResults:
 		case <-ctx.Done():
-			return nil, nil, nil, fmt.Errorf("waiting for PrepareHooks() responses: %w", ctx.Err())
+			return nil, fmt.Errorf("waiting for PrepareHooks() responses: %w", ctx.Err())
 		}
 
 		if r.err != nil {
@@ -183,29 +211,34 @@ func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec
 	}
 
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	loadHooksRequests, err := hooksSpec.instrumentCollection(spec)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("instrumenting collection: %w", err)
+		return nil, fmt.Errorf("instrumenting collection: %w", err)
 	}
 
 	for plugin, req := range loadHooksRequests {
 		prepareHooksResp := responses[plugin]
 		req.Cookie = prepareHooksResp.Cookie
 	}
+	return nil, nil
+}
 
-	coll, commit, err := bpf.LoadCollection(logger, spec, opts)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	defer func() {
-		if err != nil {
-			coll.Close()
+func purgeLinksDirs(linksDirs []string) error {
+	var err error
+
+	for _, linksDir := range linksDirs {
+		if err := bpf.Remove(linksDir); err != nil {
+			err = errors.Join(err, fmt.Errorf("purging plugin links dir %s: %w", linksDir, err))
 		}
-	}()
+	}
 
+	return err
+}
+
+func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, commit func() error, pluginMap map[string]plugins.Plugin, loadHooksRequests map[string]*datapathplugins.LoadHooksRequest, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (_ func() error, _ func(), err error) {
 	type loadResult struct {
 		plugin plugins.Plugin
 		err    error
@@ -219,7 +252,7 @@ func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec
 		operationDir := bpffsPluginOperationDir(bpf.CiliumPath(), plugin, requestID)
 
 		if err := bpf.MkdirBPF(operationDir); err != nil {
-			return nil, nil, nil, fmt.Errorf("creating BPF operation directory: %w", err)
+			return nil, nil, fmt.Errorf("creating BPF operation directory: %w", err)
 		}
 
 		defer func() {
@@ -234,17 +267,17 @@ func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec
 		for _, hook := range req.Hooks {
 			prog := coll.Programs[hook.Target]
 			if prog == nil {
-				return nil, nil, nil, fmt.Errorf("LoadHooksRequest for %s references a non-existant program: %s", plugin, hook.Target)
+				return nil, nil, fmt.Errorf("LoadHooksRequest for %s references a non-existant program: %s", plugin, hook.Target)
 			}
 
 			info, err := prog.Info()
 			if err != nil {
-				return nil, nil, nil, fmt.Errorf("getting info for program %s: %w", hook.Target, err)
+				return nil, nil, fmt.Errorf("getting info for program %s: %w", hook.Target, err)
 			}
 
 			id, avail := info.ID()
 			if !avail {
-				return nil, nil, nil, fmt.Errorf("unable to determine ID for program %s: %w", hook.Target, err)
+				return nil, nil, fmt.Errorf("unable to determine ID for program %s: %w", hook.Target, err)
 			}
 			hook.AttachTarget.ProgramId = uint64(id) // TODO: make this a uint32
 			hook.PinPath = filepath.Join(operationDir, fmt.Sprintf("%s_%s", hook.Target, hook.AttachTarget.SubprogName))
@@ -282,7 +315,7 @@ func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec
 		select {
 		case r = <-loadResults:
 		case <-ctx.Done():
-			return nil, nil, nil, fmt.Errorf("waiting for LoadHooks() responses: %w", ctx.Err())
+			return nil, nil, fmt.Errorf("waiting for LoadHooks() responses: %w", ctx.Err())
 		}
 
 		if r.err != nil {
@@ -305,14 +338,14 @@ func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec
 		for _, hook := range req.Hooks {
 			prog, err := ebpf.LoadPinnedProgram(hook.PinPath, &ebpf.LoadPinOptions{})
 			if err != nil {
-				return nil, nil, nil, fmt.Errorf("load pinned hook program at %s: %w", hook.PinPath, err)
+				return nil, nil, fmt.Errorf("load pinned hook program at %s: %w", hook.PinPath, err)
 			}
 			if err := os.Remove(hook.PinPath); err != nil {
-				return nil, nil, nil, fmt.Errorf("removing pinned hook program at %s: %w", hook.PinPath, err)
+				return nil, nil, fmt.Errorf("removing pinned hook program at %s: %w", hook.PinPath, err)
 			}
 			freplace, err := link.AttachFreplace(coll.Programs[hook.Target], hook.AttachTarget.SubprogName, prog)
 			if err != nil {
-				return nil, nil, nil, fmt.Errorf("creating freplace link for hook: %w", err)
+				return nil, nil, fmt.Errorf("creating freplace link for hook: %w", err)
 			}
 			pins = append(pins, pin{
 				link:   freplace,
@@ -324,18 +357,13 @@ func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec
 		delete(loadHooksRequests, r.plugin.Name())
 	}
 
-	return coll, func() error {
-		linksDirs := attachmentContext.LinksDirs()
-		// Just remove all pins in the pin dir. This automatically GCs
-		// links from plugins that were unregistered.
-		for _, linksDir := range linksDirs {
-			if err := os.RemoveAll(linksDir); err != nil {
-				return fmt.Errorf("unable to clean up plugin links dir %s: %w", linksDir, err)
-			}
+	return func() error {
+		if err := purgeLinksDirs(linksDirs); err != nil {
+			return err
 		}
 
-		for _, p := range pins {
-			for _, linksDir := range linksDirs {
+		for _, linksDir := range linksDirs {
+			for _, p := range pins {
 				pluginLinksDir := filepath.Join(linksDir, p.plugin.Name())
 				if err := bpf.MkdirBPF(pluginLinksDir); err != nil {
 					return fmt.Errorf("ensuring the existence of plugin links dir %s: %w", pluginLinksDir, err)
@@ -352,6 +380,10 @@ func (pc *pluginCoordinator) Load(ctx context.Context, logger *slog.Logger, spec
 
 		return commit()
 	}, closeLinks, nil
+}
+
+func (l *loader) initializePluginsDir() error {
+	return bpf.Remove(bpffsPluginsOperationsDir(bpf.CiliumPath()))
 }
 
 func preHookSubprogName(pluginName string) string {
@@ -569,8 +601,4 @@ func (g pluginDependencyGraph) after(a, b string) {
 	}
 
 	g[a].outgoing[b] = struct{}{}
-}
-
-func (l *loader) initializePluginsDir() error {
-	return os.RemoveAll(bpffsPluginsOperationsDir(bpf.CiliumPath()))
 }

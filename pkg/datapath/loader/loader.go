@@ -55,10 +55,10 @@ type loader struct {
 	configWriter       datapath.ConfigWriter
 	nodeConfigNotifier *manager.NodeConfigNotifier
 
-	db                  *statedb.DB
-	devices             statedb.Table[*tables.Device]
-	routeManager        *routeReconciler.DesiredRouteManager
-	bpfCollectionLoader bpf.CollectionLoader
+	db             *statedb.DB
+	devices        statedb.Table[*tables.Device]
+	routeManager   *routeReconciler.DesiredRouteManager
+	pluginRegistry plugins.Registry
 }
 
 type Params struct {
@@ -72,7 +72,7 @@ type Params struct {
 	ConfigWriter       datapath.ConfigWriter
 	NodeConfigNotifier *manager.NodeConfigNotifier
 	RouteManager       *routeReconciler.DesiredRouteManager
-	PluginRegistry     plugins.Manager
+	PluginRegistry     plugins.Registry
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
 	EPRestorer         promise.Promise[endpointstate.Restorer]
@@ -86,18 +86,17 @@ type Params struct {
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
 	registerRouteInitializer(p)
-
 	return &loader{
-		logger:              p.Logger,
-		templateCache:       newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
-		sysctl:              p.Sysctl,
-		hostDpInitialized:   make(chan struct{}),
-		prefilter:           p.Prefilter,
-		compilationLock:     p.CompilationLock,
-		configWriter:        p.ConfigWriter,
-		nodeConfigNotifier:  p.NodeConfigNotifier,
-		routeManager:        p.RouteManager,
-		bpfCollectionLoader: newBPFCollectionLoader(p),
+		logger:             p.Logger,
+		templateCache:      newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
+		sysctl:             p.Sysctl,
+		hostDpInitialized:  make(chan struct{}),
+		prefilter:          p.Prefilter,
+		compilationLock:    p.CompilationLock,
+		configWriter:       p.ConfigWriter,
+		nodeConfigNotifier: p.NodeConfigNotifier,
+		routeManager:       p.RouteManager,
+		pluginRegistry:     p.PluginRegistry,
 
 		db:      p.DB,
 		devices: p.Devices,
@@ -113,14 +112,4 @@ func (l *loader) CallsMapPath(id uint16) string {
 // host datapath has been loaded for the first time.
 func (l *loader) HostDatapathInitialized() <-chan struct{} {
 	return l.hostDpInitialized
-}
-
-func newBPFCollectionLoader(p Params) bpf.CollectionLoader {
-	if p.PluginRegistry != nil {
-		return &pluginCoordinator{
-			registry: p.PluginRegistry,
-		}
-	}
-
-	return &basicCollectionLoader{}
 }

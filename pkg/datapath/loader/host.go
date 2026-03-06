@@ -94,10 +94,7 @@ func attachCiliumHost(ctx context.Context, logger *slog.Logger, collLoader bpf.C
 		Constants:      ciliumHostConfiguration(ep, lnc),
 		MapRenames:     ciliumHostMapRenames(ep),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(ep.InterfaceName()), hostEndpointConfig),
-	}, lnc, &attachmentContextHost{
-		ep:     ep,
-		device: host,
-	})
+	}, lnc, attachmentContextHost(ep, host), bpffsDevicePluginLinksDirs(bpf.CiliumPath(), host))
 	if err != nil {
 		return err
 	}
@@ -164,10 +161,7 @@ func attachCiliumNet(ctx context.Context, logger *slog.Logger, collLoader bpf.Co
 		Constants:      ciliumNetConfiguration(ep, lnc, net),
 		MapRenames:     ciliumNetMapRenames(ep, net),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(defaults.SecondHostDevice), hostEndpointConfig),
-	}, lnc, &attachmentContextHost{
-		ep:     ep,
-		device: net,
-	})
+	}, lnc, attachmentContextHost(ep, net), bpffsDevicePluginLinksDirs(bpf.CiliumPath(), net))
 	if err != nil {
 		return err
 	}
@@ -253,10 +247,7 @@ func attachNetworkDevices(ctx context.Context, logger *slog.Logger, collLoader b
 			Constants:      netdevConfiguration(ep, lnc, iface, masq4, masq6),
 			MapRenames:     netdevMapRenames(ep, iface),
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), hostEndpointConfig),
-		}, lnc, &attachmentContextHost{
-			ep:     ep,
-			device: iface,
-		})
+		}, lnc, attachmentContextHost(ep, iface), bpffsDevicePluginLinksDirs(bpf.CiliumPath(), iface))
 		if err != nil {
 			return err
 		}
