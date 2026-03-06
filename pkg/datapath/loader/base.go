@@ -184,6 +184,16 @@ func (l *loader) reinitializeEncryption(ctx context.Context, lnc *datapath.Local
 	// by configuration.
 	if !lnc.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard, lnc.EnableIPSec) {
 		os.RemoveAll(bpfStateDeviceDir(networkConfig))
+		// need to iterate through all physical devs and delete any links
+		// to fromnetwork
+		links, err := safenetlink.LinkList()
+		if err != nil {
+			return err
+		}
+
+		for _, link := range links {
+			bpf.Remove(filepath.Join(bpffsDeviceLinksDir(bpf.CiliumPath(), link), symbolFromNetwork))
+		}
 
 		return nil
 	}
@@ -253,11 +263,16 @@ func linkNames(links []netlink.Link) []string {
 func reinitializeOverlay(ctx context.Context, logger *slog.Logger, collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config) error {
 	// tunnelConfig.EncapProtocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
+	if tunnelConfig.EncapProtocol() != tunnel.Geneve {
+		os.RemoveAll(bpffsDeviceNameDir(bpf.CiliumPath(), defaults.GeneveDevice))
+		os.RemoveAll(bpfStateDeviceDir(defaults.GeneveDevice))
+	}
+	if tunnelConfig.EncapProtocol() != tunnel.VXLAN {
+		os.RemoveAll(bpffsDeviceNameDir(bpf.CiliumPath(), defaults.VxlanDevice))
+		os.RemoveAll(bpfStateDeviceDir(defaults.VxlanDevice))
+	}
 	if tunnelConfig.EncapProtocol() == tunnel.Disabled {
 		cleanCallsMaps("cilium_calls_overlay*")
-
-		os.RemoveAll(bpfStateDeviceDir(defaults.VxlanDevice))
-		os.RemoveAll(bpfStateDeviceDir(defaults.GeneveDevice))
 
 		return nil
 	}
@@ -279,6 +294,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, collLoader 
 	if !lnc.EnableWireguard {
 		cleanCallsMaps("cilium_calls_wireguard*")
 
+		os.RemoveAll(bpffsDeviceNameDir(bpf.CiliumPath(), wgTypes.IfaceName))
 		os.RemoveAll(bpfStateDeviceDir(wgTypes.IfaceName))
 
 		return

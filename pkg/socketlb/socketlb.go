@@ -53,6 +53,10 @@ func cgroupLinkPath() string {
 	return filepath.Join(bpf.CiliumPath(), Subsystem, "links/cgroup")
 }
 
+func cgroupPluginsLinkPath() string {
+	return filepath.Join(bpf.CiliumPath(), Subsystem, "plugin_links/cgroup")
+}
+
 type attachmentContextSocket struct {
 }
 
@@ -61,7 +65,7 @@ func (ac *attachmentContextSocket) AttachmentContext() *datapathplugins.Attachme
 }
 
 func (ac *attachmentContextSocket) LinksDirs() []string {
-	return []string{""}
+	return []string{cgroupPluginsLinkPath()}
 }
 
 // Enable attaches necessary bpf programs for socketlb based on ciliums config.
@@ -175,6 +179,11 @@ func Disable(logger *slog.Logger) error {
 		if err := detachCgroup(logger, p, cgroups.GetCgroupRoot(), cgroupLinkPath()); err != nil {
 			return fmt.Errorf("detach cgroup: %w", err)
 		}
+
+	}
+
+	if err := bpf.Remove(filepath.Join(bpf.CiliumPath(), Subsystem)); err != nil {
+		return fmt.Errorf("removing socketlb root bpffs  directory: %w")
 	}
 
 	return nil
