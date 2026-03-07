@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -459,6 +460,9 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 			asm.Call.Label(subprogName),
 			asm.JNE.Imm(asm.R0, -1, "return"),
 		)
+		if hooks[plugin] == nil {
+			hooks[plugin] = &datapathplugins.LoadHooksRequest{}
+		}
 		hooks[plugin].Hooks = append(hooks[plugin].Hooks, &datapathplugins.LoadHooksRequest_Hook{
 			AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
 				SubprogName: subprogName,
@@ -482,6 +486,9 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 			asm.Call.Label(subprogName),
 			asm.JNE.Imm(asm.R0, -1, "return"),
 		)
+		if hooks[plugin] == nil {
+			hooks[plugin] = &datapathplugins.LoadHooksRequest{}
+		}
 		hooks[plugin].Hooks = append(hooks[plugin].Hooks, &datapathplugins.LoadHooksRequest_Hook{
 			AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
 				SubprogName: subprogName,
@@ -554,28 +561,31 @@ func (g pluginDependencyGraph) sort() ([]string, error) {
 		batchSize := len(empty)
 
 		for i := 0; i < batchSize; i++ {
-			sorted = append(sorted, empty[0])
+			if g[empty[0]].exists {
+				sorted = append(sorted, empty[0])
 
-			for after := range g[empty[0]].outgoing {
-				g[after].incomingCount--
+				for after := range g[empty[0]].outgoing {
+					g[after].incomingCount--
 
-				if g[after].incomingCount == 0 {
-					empty = append(empty, after)
+					if g[after].incomingCount == 0 {
+						empty = append(empty, after)
+					}
 				}
 			}
 
+			delete(g, empty[0])
 			empty = empty[1:]
 		}
 	}
 
 	if len(g) > 0 {
-		return nil, fmt.Errorf("cycle detected")
+		return nil, g.findDependencyCycle()
 	}
 
 	return sorted, nil
 }
 
-func (g pluginDependencyGraph) lazyInitNode(name string) {
+func (g pluginDependencyGraph) ensureNode(name string) {
 	if g[name] == nil {
 		g[name] = &node{
 			outgoing: map[string]struct{}{},
@@ -584,10 +594,7 @@ func (g pluginDependencyGraph) lazyInitNode(name string) {
 }
 
 func (g pluginDependencyGraph) addNode(name string) {
-	if g[name] == nil {
-		g[name] = &node{}
-	}
-
+	g.ensureNode(name)
 	g[name].exists = true
 }
 
@@ -596,9 +603,83 @@ func (g pluginDependencyGraph) before(a, b string) {
 }
 
 func (g pluginDependencyGraph) after(a, b string) {
-	if g[a] == nil {
-		g[a] = &node{}
+	g.ensureNode(a)
+	g.ensureNode(b)
+	if _, exists := g[b].outgoing[a]; !exists {
+		g[b].outgoing[a] = struct{}{}
+		g[a].incomingCount++
+	}
+}
+
+func (g pluginDependencyGraph) sortedNodes() []string {
+	var nodes []string
+
+	for n := range g {
+		nodes = append(nodes, n)
 	}
 
-	g[a].outgoing[b] = struct{}{}
+	sort.Strings(nodes)
+	return nodes
+}
+
+func (g pluginDependencyGraph) sortedOutgoing(n string) []string {
+	var outgoing []string
+
+	for o := range g[n].outgoing {
+		outgoing = append(outgoing, o)
+	}
+
+	sort.Strings(outgoing)
+	return outgoing
+}
+
+func (g pluginDependencyGraph) findDependencyCycle() error {
+	var findCycle func(node string, path []string, visited map[string]bool) []string
+	findCycle = func(node string, path []string, visited map[string]bool) []string {
+		if visited[node] {
+			return path
+		}
+
+		visited[node] = true
+		for _, after := range g.sortedOutgoing(node) {
+			path = append(path, after)
+			if cycle := findCycle(after, path, visited); cycle != nil {
+				return cycle
+			}
+			path = path[:len(path)-1]
+		}
+		visited[node] = false
+
+		return nil
+	}
+
+	var cycle []string
+
+	for _, n := range g.sortedNodes() {
+		cycle = findCycle(n, []string{n}, map[string]bool{})
+		if cycle != nil {
+			break
+		}
+	}
+
+	return &dependencyCycleError{
+		cycle: cycle,
+	}
+}
+
+type dependencyCycleError struct {
+	cycle []string
+}
+
+func (err *dependencyCycleError) Error() string {
+	msg := "dependency cycle: "
+
+	for i, p := range err.cycle {
+		msg += p
+		if i != len(err.cycle)-1 {
+			msg += "->"
+		}
+	}
+
+	return msg
 }
