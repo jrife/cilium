@@ -234,7 +234,7 @@ func (l *loader) reinitializeEncryption(ctx context.Context, lnc *datapath.Local
 		return nil
 	}
 
-	if err := replaceEncryptionDatapath(ctx, l.logger, l, lnc, attach); err != nil {
+	if err := replaceEncryptionDatapath(ctx, l.logger, l.bpfCollectionLoader, lnc, attach); err != nil {
 		return fmt.Errorf("failed to replace encryption datapath: %w", err)
 	}
 
@@ -468,7 +468,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		if err := compileWithOptions(ctx, l.logger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
 		}
-		if err := socketlb.Enable(ctx, l.logger, l.sysctl, l, lnc); err != nil {
+		if err := socketlb.Enable(ctx, l.logger, l.sysctl, l.bpfCollectionLoader, lnc); err != nil {
 			return err
 		}
 	} else {
@@ -477,7 +477,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := reinitializeXDPLocked(ctx, l.logger, l, lnc, devices); err != nil {
+	if err := reinitializeXDPLocked(ctx, l.logger, l.bpfCollectionLoader, lnc, devices); err != nil {
 		logging.Fatal(l.logger, "Failed to compile XDP program", logfields.Error, err)
 	}
 
@@ -494,11 +494,11 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		return err
 	}
 
-	if err := reinitializeWireguard(ctx, l.logger, l, lnc); err != nil {
+	if err := reinitializeWireguard(ctx, l.logger, l.bpfCollectionLoader, lnc); err != nil {
 		return err
 	}
 
-	if err := reinitializeOverlay(ctx, l.logger, l, lnc, tunnelConfig); err != nil {
+	if err := reinitializeOverlay(ctx, l.logger, l.bpfCollectionLoader, lnc, tunnelConfig); err != nil {
 		return err
 	}
 

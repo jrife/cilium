@@ -105,7 +105,7 @@ func bpffsPluginsOperationsDir(base string) string {
 }
 
 func bpffsPluginOperationsDir(base, plugin string) string {
-	return filepath.Join(bpffsPluginsOperationsDir(base), plugin)
+	return filepath.Join(base, plugin)
 }
 
 func bpffsPluginOperationDir(base, plugin, id string) string {

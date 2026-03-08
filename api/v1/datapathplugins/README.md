@@ -9,13 +9,20 @@
     - [AttachmentContext.TC.EndpointConfig](#datapathplugins-AttachmentContext-TC-EndpointConfig)
     - [LoadHooksRequest](#datapathplugins-LoadHooksRequest)
     - [LoadHooksRequest.Collection](#datapathplugins-LoadHooksRequest-Collection)
+    - [LoadHooksRequest.Collection.Map](#datapathplugins-LoadHooksRequest-Collection-Map)
+    - [LoadHooksRequest.Collection.MapsEntry](#datapathplugins-LoadHooksRequest-Collection-MapsEntry)
+    - [LoadHooksRequest.Collection.Program](#datapathplugins-LoadHooksRequest-Collection-Program)
+    - [LoadHooksRequest.Collection.ProgramsEntry](#datapathplugins-LoadHooksRequest-Collection-ProgramsEntry)
     - [LoadHooksRequest.Hook](#datapathplugins-LoadHooksRequest-Hook)
     - [LoadHooksRequest.Hook.AttachTarget](#datapathplugins-LoadHooksRequest-Hook-AttachTarget)
     - [LoadHooksResponse](#datapathplugins-LoadHooksResponse)
     - [LocalNodeConfig](#datapathplugins-LocalNodeConfig)
     - [PrepareHooksRequest](#datapathplugins-PrepareHooksRequest)
     - [PrepareHooksRequest.CollectionSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec)
+    - [PrepareHooksRequest.CollectionSpec.MapSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec-MapSpec)
+    - [PrepareHooksRequest.CollectionSpec.MapsEntry](#datapathplugins-PrepareHooksRequest-CollectionSpec-MapsEntry)
     - [PrepareHooksRequest.CollectionSpec.ProgramSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramSpec)
+    - [PrepareHooksRequest.CollectionSpec.ProgramsEntry](#datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramsEntry)
     - [PrepareHooksResponse](#datapathplugins-PrepareHooksResponse)
     - [PrepareHooksResponse.HookSpec](#datapathplugins-PrepareHooksResponse-HookSpec)
     - [PrepareHooksResponse.HookSpec.OrderingConstraint](#datapathplugins-PrepareHooksResponse-HookSpec-OrderingConstraint)
@@ -105,9 +112,75 @@ inject hooks.
 ### LoadHooksRequest.Collection
 Program and map IDs in the collection
 
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| programs | [LoadHooksRequest.Collection.ProgramsEntry](#datapathplugins-LoadHooksRequest-Collection-ProgramsEntry) | repeated |  |
+| maps | [LoadHooksRequest.Collection.MapsEntry](#datapathplugins-LoadHooksRequest-Collection-MapsEntry) | repeated |  |
+
+
+
+
+
+
+<a name="datapathplugins-LoadHooksRequest-Collection-Map"></a>
+
+### LoadHooksRequest.Collection.Map
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="datapathplugins-LoadHooksRequest-Collection-MapsEntry"></a>
+
+### LoadHooksRequest.Collection.MapsEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [LoadHooksRequest.Collection.Map](#datapathplugins-LoadHooksRequest-Collection-Map) |  |  |
+
+
+
+
+
+
+<a name="datapathplugins-LoadHooksRequest-Collection-Program"></a>
+
+### LoadHooksRequest.Collection.Program
 Would contain information about programs and maps in this collection
 such as names, IDs, etc. This could be consumed by plugin programs
 themselves, e.g., for sharing map state.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [uint32](#uint32) |  |  |
+
+
+
+
+
+
+<a name="datapathplugins-LoadHooksRequest-Collection-ProgramsEntry"></a>
+
+### LoadHooksRequest.Collection.ProgramsEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [LoadHooksRequest.Collection.Program](#datapathplugins-LoadHooksRequest-Collection-Program) |  |  |
 
 
 
@@ -140,7 +213,7 @@ themselves, e.g., for sharing map state.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| program_id | [uint64](#uint64) |  |  |
+| program_id | [uint32](#uint32) |  |  |
 | subprog_name | [string](#string) |  |  |
 
 
@@ -200,7 +273,34 @@ them, and informs Cilium in the PrepareHooksResponse.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| programs | [PrepareHooksRequest.CollectionSpec.ProgramSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramSpec) | repeated |  |
+| programs | [PrepareHooksRequest.CollectionSpec.ProgramsEntry](#datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramsEntry) | repeated |  |
+| maps | [PrepareHooksRequest.CollectionSpec.MapsEntry](#datapathplugins-PrepareHooksRequest-CollectionSpec-MapsEntry) | repeated |  |
+
+
+
+
+
+
+<a name="datapathplugins-PrepareHooksRequest-CollectionSpec-MapSpec"></a>
+
+### PrepareHooksRequest.CollectionSpec.MapSpec
+
+
+
+
+
+
+
+<a name="datapathplugins-PrepareHooksRequest-CollectionSpec-MapsEntry"></a>
+
+### PrepareHooksRequest.CollectionSpec.MapsEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [PrepareHooksRequest.CollectionSpec.MapSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec-MapSpec) |  |  |
 
 
 
@@ -213,9 +313,20 @@ them, and informs Cilium in the PrepareHooksResponse.
 
 
 
+
+
+
+
+<a name="datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramsEntry"></a>
+
+### PrepareHooksRequest.CollectionSpec.ProgramsEntry
+
+
+
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  |  |
+| key | [string](#string) |  |  |
+| value | [PrepareHooksRequest.CollectionSpec.ProgramSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramSpec) |  |  |
 
 
 

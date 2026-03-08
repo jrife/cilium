@@ -53,11 +53,12 @@ func attachmentContextEncryption(ifaces []netlink.Link) *datapathplugins.Attachm
 	return &datapathplugins.AttachmentContext{}
 }
 
-type pluginCollectionLoader struct {
-	registry plugins.Registry
+type bpfCollectionLoader struct {
+	pluginOperationsDir string
+	pluginRegistry      plugins.Registry
 }
 
-func (l *loader) LoadAndAssign(ctx context.Context, logger *slog.Logger, to any, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (func() error, func(), error) {
+func (l *bpfCollectionLoader) LoadAndAssign(ctx context.Context, logger *slog.Logger, to any, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (func() error, func(), error) {
 	coll, commit, cleanupLinks, err := l.Load(ctx, logger, spec, opts, lnc, attachmentContext, linksDirs)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
@@ -78,7 +79,7 @@ func (l *loader) LoadAndAssign(ctx context.Context, logger *slog.Logger, to any,
 	return commit, cleanupLinks, nil
 }
 
-func (l *loader) Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (coll *ebpf.Collection, commit func() error, cleanup func(), err error) {
+func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (coll *ebpf.Collection, commit func() error, cleanup func(), err error) {
 	if !l.pluginRegistry.IsEnabled() {
 		// If plugins were previously enabled, clean up any lingering
 		// pinned links in the plugin link directories.
@@ -106,9 +107,9 @@ func (l *loader) Load(ctx context.Context, logger *slog.Logger, spec *ebpf.Colle
 		}
 	}()
 
-	commit, cleanup, err = loadHooks(ctx, logger, coll, commit, pluginMap, loadHooksRequests, attachmentContext, linksDirs)
+	commit, cleanup, err = loadHooks(ctx, logger, coll, commit, pluginMap, loadHooksRequests, attachmentContext, l.pluginOperationsDir, linksDirs)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("loading hooks: %w", err)
+		return coll, commit, nil, fmt.Errorf("loading hooks: %w", err)
 	}
 
 	return coll, commit, cleanup, nil
@@ -119,14 +120,16 @@ func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string
 		AttachmentContext: attachmentContext,
 		LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 		Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-			Programs: make([]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec, 0, len(spec.Programs)),
+			Programs: make(map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec),
+			Maps:     make(map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec),
 		},
 	}
 
 	for name := range spec.Programs {
-		req.Collection.Programs = append(req.Collection.Programs, &datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
-			Name: name,
-		})
+		req.Collection.Programs[name] = &datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{}
+	}
+	for name := range spec.Maps {
+		req.Collection.Maps[name] = &datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{}
 	}
 
 	type prepareResult struct {
@@ -164,12 +167,14 @@ func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string
 				err = errors.Join(err, fmt.Errorf("%s: PrepareHooks(): %w", r.plugin.Name(), r.err))
 			}
 
+			delete(pluginMap, r.plugin.Name())
+
 			continue
+		} else {
+			responses[r.plugin.Name()] = r.resp
 		}
 
 		logger.Debug("PrepareHooks() succeeded", "plugin", r.plugin.Name())
-		responses[r.plugin.Name()] = r.resp
-
 	process_hooks:
 		for _, h := range r.resp.Hooks {
 			ps := spec.Programs[h.Target]
@@ -223,8 +228,15 @@ func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string
 	for plugin, req := range loadHooksRequests {
 		prepareHooksResp := responses[plugin]
 		req.Cookie = prepareHooksResp.Cookie
+		req.Collection = &datapathplugins.LoadHooksRequest_Collection{
+			Programs: make(map[string]*datapathplugins.LoadHooksRequest_Collection_Program),
+			Maps:     make(map[string]*datapathplugins.LoadHooksRequest_Collection_Map),
+		}
+		req.AttachmentContext = attachmentContext
+		req.LocalNodeConfig = &datapathplugins.LocalNodeConfig{} // TODO
 	}
-	return nil, nil
+
+	return loadHooksRequests, nil
 }
 
 func purgeLinksDirs(linksDirs []string) error {
@@ -239,7 +251,35 @@ func purgeLinksDirs(linksDirs []string) error {
 	return err
 }
 
-func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, commit func() error, pluginMap map[string]plugins.Plugin, loadHooksRequests map[string]*datapathplugins.LoadHooksRequest, attachmentContext *datapathplugins.AttachmentContext, linksDirs []string) (_ func() error, _ func(), err error) {
+func progID(p *ebpf.Program) (uint32, error) {
+	info, err := p.Info()
+	if err != nil {
+		return 0, err
+	}
+
+	id, avail := info.ID()
+	if !avail {
+		return 0, err
+	}
+
+	return uint32(id), nil
+}
+
+func mapID(m *ebpf.Map) (uint32, error) {
+	info, err := m.Info()
+	if err != nil {
+		return 0, err
+	}
+
+	id, avail := info.ID()
+	if !avail {
+		return 0, err
+	}
+
+	return uint32(id), nil
+}
+
+func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, commit func() error, pluginMap map[string]plugins.Plugin, loadHooksRequests map[string]*datapathplugins.LoadHooksRequest, attachmentContext *datapathplugins.AttachmentContext, opsDir string, linksDirs []string) (_ func() error, _ func(), err error) {
 	type loadResult struct {
 		plugin plugins.Plugin
 		err    error
@@ -250,7 +290,7 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 
 	for plugin, req := range loadHooksRequests {
 		requestID := uuid.New().String()
-		operationDir := bpffsPluginOperationDir(bpf.CiliumPath(), plugin, requestID)
+		operationDir := bpffsPluginOperationDir(opsDir, plugin, requestID)
 
 		if err := bpf.MkdirBPF(operationDir); err != nil {
 			return nil, nil, fmt.Errorf("creating BPF operation directory: %w", err)
@@ -265,22 +305,38 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 			}
 		}()
 
+		for name, p := range coll.Programs {
+			id, err := progID(p)
+			if err != nil {
+				return nil, nil, fmt.Errorf("getting ID for program %s: %w", name, err)
+			}
+
+			req.Collection.Programs[name] = &datapathplugins.LoadHooksRequest_Collection_Program{
+				Id: id,
+			}
+		}
+		for name, m := range coll.Maps {
+			id, err := mapID(m)
+			if err != nil {
+				return nil, nil, fmt.Errorf("getting ID for map %s: %w", name, err)
+			}
+			req.Collection.Maps[name] = &datapathplugins.LoadHooksRequest_Collection_Map{
+				Id: id,
+			}
+		}
+
 		for _, hook := range req.Hooks {
 			prog := coll.Programs[hook.Target]
 			if prog == nil {
 				return nil, nil, fmt.Errorf("LoadHooksRequest for %s references a non-existant program: %s", plugin, hook.Target)
 			}
 
-			info, err := prog.Info()
+			id, err := progID(prog)
 			if err != nil {
-				return nil, nil, fmt.Errorf("getting info for program %s: %w", hook.Target, err)
+				return nil, nil, fmt.Errorf("getting ID for target program %s: %w", hook.Target, err)
 			}
 
-			id, avail := info.ID()
-			if !avail {
-				return nil, nil, fmt.Errorf("unable to determine ID for program %s: %w", hook.Target, err)
-			}
-			hook.AttachTarget.ProgramId = uint64(id) // TODO: make this a uint32
+			hook.AttachTarget.ProgramId = id
 			hook.PinPath = filepath.Join(operationDir, fmt.Sprintf("%s_%s", hook.Target, hook.AttachTarget.SubprogName))
 		}
 
@@ -319,22 +375,21 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 			return nil, nil, fmt.Errorf("waiting for LoadHooks() responses: %w", ctx.Err())
 		}
 
+		req := loadHooksRequests[r.plugin.Name()]
+		delete(loadHooksRequests, r.plugin.Name())
+
 		if r.err != nil {
 			logger.Error("LoadHooks() failed",
 				logfields.Error, r.err,
 				"plugin", r.plugin.Name(),
 			)
 
-			if r.plugin.AttachmentPolicy() == api_v2alpha1.AttachmentPolicyAlways {
-				err = errors.Join(err, fmt.Errorf("%s: LoadHooks(): %w", r.plugin.Name(), r.err))
-			}
+			err = errors.Join(err, fmt.Errorf("%s: LoadHooks(): %w", r.plugin.Name(), r.err))
 
 			continue
 		}
 
 		logger.Debug("LoadHooks() succeeded", "plugin", r.plugin.Name())
-
-		req := loadHooksRequests[r.plugin.Name()]
 
 		for _, hook := range req.Hooks {
 			prog, err := ebpf.LoadPinnedProgram(hook.PinPath, &ebpf.LoadPinOptions{})
@@ -354,8 +409,10 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 				name:   filepath.Base(hook.PinPath),
 			})
 		}
+	}
 
-		delete(loadHooksRequests, r.plugin.Name())
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return func() error {

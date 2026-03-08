@@ -83,7 +83,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 	if ep.IsHost() {
 		// Reload bpf programs on cilium_host and cilium_net.
 		stats.BpfLoadProg.Start()
-		err = reloadHostEndpoint(ctx, l.logger, l, ep, lnc, spec)
+		err = reloadHostEndpoint(ctx, l.logger, l.bpfCollectionLoader, ep, lnc, spec)
 		stats.BpfLoadProg.End(err == nil)
 
 		l.hostDpInitializedOnce.Do(func() {
@@ -96,7 +96,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(ctx, l.logger, l.db, l.devices, l.routeManager, l, ep, lnc, spec)
+	err = reloadEndpoint(ctx, l.logger, l.db, l.devices, l.routeManager, l.bpfCollectionLoader, ep, lnc, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
