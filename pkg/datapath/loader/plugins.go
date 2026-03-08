@@ -451,14 +451,14 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 	var dispatcherInstructions []asm.Instruction
 
 	// Preserve ctx in R6, callee saved register.
-	asm.Mov.Reg(asm.R6, asm.R1)
+	dispatcherInstructions = append(dispatcherInstructions, asm.Mov.Reg(asm.R6, asm.R1))
 
 	for _, plugin := range pre {
 		subprogName := preHookSubprogName(plugin)
 		dispatcherInstructions = append(dispatcherInstructions,
 			asm.Mov.Reg(asm.R1, asm.R6),
 			asm.Call.Label(subprogName),
-			asm.JNE.Imm(asm.R0, -1, "return"),
+			asm.JNE.Imm32(asm.R0, -1, "return"),
 		)
 		if hooks[plugin] == nil {
 			hooks[plugin] = &datapathplugins.LoadHooksRequest{}
@@ -484,7 +484,7 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 			asm.Mov.Reg(asm.R1, asm.R6),
 			asm.Mov.Reg(asm.R2, asm.R7),
 			asm.Call.Label(subprogName),
-			asm.JNE.Imm(asm.R0, -1, "return"),
+			asm.JNE.Imm32(asm.R0, -1, "return"),
 		)
 		if hooks[plugin] == nil {
 			hooks[plugin] = &datapathplugins.LoadHooksRequest{}
@@ -503,6 +503,18 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 		asm.Return().WithSymbol("return"),
 	)
 
+	entryName := fmt.Sprintf("__%s__", btfMeta.Name)
+	dispatcherInstructions[0] = btf.WithFuncMetadata(
+		dispatcherInstructions[0].
+			WithSymbol(entryName).
+			WithSource(asm.Comment(entryName)),
+		&btf.Func{
+			Name:    entryName,
+			Type:    funcProto,
+			Linkage: btf.GlobalFunc,
+		})
+	dispatcherInstructions = append(dispatcherInstructions, ps.Instructions...)
+
 	postHookProto := *funcProto
 	postHookProto.Params = append(
 		append([]btf.FuncParam(nil), postHookProto.Params...),
@@ -512,29 +524,37 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 	for _, plugin := range pre {
 		hookName := preHookSubprogName(plugin)
 		dispatcherInstructions = append(dispatcherInstructions,
-			btf.WithFuncMetadata(asm.Mov.Imm(asm.R0, 0).WithSymbol(hookName), &btf.Func{
-				Name: hookName,
-				Type: funcProto,
-				// BTF_FUNC_GLOBAL ensures programs are independently verified.
-				Linkage: btf.GlobalFunc,
-			}),
+			btf.WithFuncMetadata(
+				asm.Mov.Imm(asm.R0, 0).
+					WithSymbol(hookName).
+					WithSource(asm.Comment(hookName)),
+				&btf.Func{
+					Name: hookName,
+					Type: funcProto,
+					// BTF_FUNC_GLOBAL ensures programs are independently verified.
+					Linkage: btf.GlobalFunc,
+				}),
 			asm.Return(),
 		)
 	}
 	for _, plugin := range post {
 		hookName := postHookSubprogName(plugin)
 		dispatcherInstructions = append(dispatcherInstructions,
-			btf.WithFuncMetadata(asm.Mov.Imm(asm.R0, 0).WithSymbol(hookName), &btf.Func{
-				Name: hookName,
-				Type: &postHookProto,
-				// BTF_FUNC_GLOBAL ensures programs are independently verified.
-				Linkage: btf.GlobalFunc,
-			}),
+			btf.WithFuncMetadata(
+				asm.Mov.Imm(asm.R0, 0).
+					WithSymbol(hookName).
+					WithSource(asm.Comment(hookName)),
+				&btf.Func{
+					Name: hookName,
+					Type: &postHookProto,
+					// BTF_FUNC_GLOBAL ensures programs are independently verified.
+					Linkage: btf.GlobalFunc,
+				}),
 			asm.Return(),
 		)
 	}
-	ps.Instructions[0] = ps.Instructions[0].WithSymbol(btfMeta.Name)
-	dispatcherInstructions = append(dispatcherInstructions, ps.Instructions...)
+
+	ps.Instructions = dispatcherInstructions
 
 	return nil
 }
