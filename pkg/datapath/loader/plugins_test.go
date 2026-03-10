@@ -298,7 +298,7 @@ func maybeReportVerifierError(err error) error {
 	return err
 }
 
-func chooseHookProgram(hook *datapathplugins.LoadHooksRequest_Hook) string {
+func chooseHookProgram(hook *datapathplugins.InstrumentCollectionRequest_Hook) string {
 	var name string
 
 	if hook.Type == datapathplugins.HookType_PRE {
@@ -313,7 +313,7 @@ func chooseHookProgram(hook *datapathplugins.LoadHooksRequest_Hook) string {
 func TestPrivilegedHooksSpec(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	preparePluginHooksSpec := func(baseColl *ebpf.Collection, hookColl *ebpf.CollectionSpec, hooks []*datapathplugins.LoadHooksRequest_Hook) {
+	preparePluginHooksSpec := func(baseColl *ebpf.Collection, hookColl *ebpf.CollectionSpec, hooks []*datapathplugins.InstrumentCollectionRequest_Hook) {
 		usedHookPrograms := map[string]bool{}
 		for _, hook := range hooks {
 			hookProgramName := chooseHookProgram(hook)
@@ -331,33 +331,56 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                      string
-		hooks                     map[string][]*datapathplugins.PrepareHooksResponse_HookSpec
-		inputValues               inputValues
-		expectedLoadHooksRequests map[string]*datapathplugins.LoadHooksRequest
-		expectedOutputValues      outputValues
+		name                                 string
+		hooks                                map[string][]*datapathplugins.PrepareCollectionResponse_HookSpec
+		inputValues                          inputValues
+		expectedInstrumentCollectionRequests map[string]*datapathplugins.InstrumentCollectionRequest
+		expectedOutputValues                 outputValues
 	}{
 		{
+			name: "no hooks",
+			hooks: map[string][]*datapathplugins.PrepareCollectionResponse_HookSpec{
+				"plugin_a": {},
+				"plugin_b": {},
+			},
+			inputValues: inputValues{
+				hook: map[string]hookInputValues{
+					"plugin_a": {},
+					"plugin_b": {},
+				},
+			},
+			expectedInstrumentCollectionRequests: map[string]*datapathplugins.InstrumentCollectionRequest{},
+			expectedOutputValues: outputValues{
+				base: baseOutputValues{
+					aSeq: 1,
+					bSeq: 1,
+					retA: 0,
+					retB: 0,
+				},
+				hook: map[string]hookOutputValues{},
+			},
+		},
+		{
 			name: "pre hooks basic",
-			hooks: map[string][]*datapathplugins.PrepareHooksResponse_HookSpec{
+			hooks: map[string][]*datapathplugins.PrepareCollectionResponse_HookSpec{
 				"plugin_a": {
 					{
 						Type:   datapathplugins.HookType_PRE,
 						Target: "program_a",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_PRE,
 						Target: "program_b",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
@@ -385,39 +408,39 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedLoadHooksRequests: map[string]*datapathplugins.LoadHooksRequest{
+			expectedInstrumentCollectionRequests: map[string]*datapathplugins.InstrumentCollectionRequest{
 				"plugin_a": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_a"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_a"),
 							},
 						},
 					},
 				},
 				"plugin_b": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_b"),
 							},
 						},
@@ -445,25 +468,25 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 		},
 		{
 			name: "post hooks basic",
-			hooks: map[string][]*datapathplugins.PrepareHooksResponse_HookSpec{
+			hooks: map[string][]*datapathplugins.PrepareCollectionResponse_HookSpec{
 				"plugin_a": {
 					{
 						Type:   datapathplugins.HookType_POST,
 						Target: "program_a",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_POST,
 						Target: "program_b",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
@@ -495,38 +518,38 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedLoadHooksRequests: map[string]*datapathplugins.LoadHooksRequest{
+			expectedInstrumentCollectionRequests: map[string]*datapathplugins.InstrumentCollectionRequest{
 				"plugin_a": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_a"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_a"),
 							},
 						},
 					},
 				},
 				"plugin_b": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_b"),
 							},
 						},
@@ -558,45 +581,45 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 		},
 		{
 			name: "pre and post hooks basic",
-			hooks: map[string][]*datapathplugins.PrepareHooksResponse_HookSpec{
+			hooks: map[string][]*datapathplugins.PrepareCollectionResponse_HookSpec{
 				"plugin_a": {
 					{
 						Type:   datapathplugins.HookType_PRE,
 						Target: "program_a",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_POST,
 						Target: "program_a",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_PRE,
 						Target: "program_b",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_POST,
 						Target: "program_b",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
@@ -640,27 +663,27 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedLoadHooksRequests: map[string]*datapathplugins.LoadHooksRequest{
+			expectedInstrumentCollectionRequests: map[string]*datapathplugins.InstrumentCollectionRequest{
 				"plugin_a": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_a"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_a"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_a"),
 							},
 						},
@@ -668,39 +691,39 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_a"),
 							},
 						},
 					},
 				},
 				"plugin_b": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_b"),
 							},
 						},
@@ -736,45 +759,45 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 		},
 		{
 			name: "pre hook override",
-			hooks: map[string][]*datapathplugins.PrepareHooksResponse_HookSpec{
+			hooks: map[string][]*datapathplugins.PrepareCollectionResponse_HookSpec{
 				"plugin_a": {
 					{
 						Type:   datapathplugins.HookType_PRE,
 						Target: "program_a",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_POST,
 						Target: "program_a",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_PRE,
 						Target: "program_b",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_POST,
 						Target: "program_b",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
@@ -818,27 +841,27 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedLoadHooksRequests: map[string]*datapathplugins.LoadHooksRequest{
+			expectedInstrumentCollectionRequests: map[string]*datapathplugins.InstrumentCollectionRequest{
 				"plugin_a": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_a"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_a"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_a"),
 							},
 						},
@@ -846,39 +869,39 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_a"),
 							},
 						},
 					},
 				},
 				"plugin_b": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_b"),
 							},
 						},
@@ -914,45 +937,45 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 		},
 		{
 			name: "post hook override",
-			hooks: map[string][]*datapathplugins.PrepareHooksResponse_HookSpec{
+			hooks: map[string][]*datapathplugins.PrepareCollectionResponse_HookSpec{
 				"plugin_a": {
 					{
 						Type:   datapathplugins.HookType_PRE,
 						Target: "program_a",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_POST,
 						Target: "program_a",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_PRE,
 						Target: "program_b",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
 					{
 						Type:   datapathplugins.HookType_POST,
 						Target: "program_b",
-						Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+						Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 							{
 								Plugin: "plugin_b",
-								Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+								Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 							},
 						},
 					},
@@ -996,27 +1019,27 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedLoadHooksRequests: map[string]*datapathplugins.LoadHooksRequest{
+			expectedInstrumentCollectionRequests: map[string]*datapathplugins.InstrumentCollectionRequest{
 				"plugin_a": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_a"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_a"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_a"),
 							},
 						},
@@ -1024,39 +1047,39 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_a"),
 							},
 						},
 					},
 				},
 				"plugin_b": {
-					Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+					Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_a",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_PRE,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: preHookSubprogName("plugin_b"),
 							},
 						},
 						{
 							Type:   datapathplugins.HookType_POST,
 							Target: "program_b",
-							AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+							AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 								SubprogName: postHookSubprogName("plugin_b"),
 							},
 						},
@@ -1100,9 +1123,9 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 					hooksSpec.hook(hook.Target, hook.Type).addNode(plugin)
 					for _, constraint := range hook.Constraints {
 						switch constraint.Order {
-						case datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE:
+						case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE:
 							hooksSpec.hook(hook.Target, hook.Type).before(plugin, constraint.Plugin)
-						case datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_AFTER:
+						case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_AFTER:
 							hooksSpec.hook(hook.Target, hook.Type).after(plugin, constraint.Plugin)
 						}
 					}
@@ -1113,9 +1136,9 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 			loadHooksRequests, err := hooksSpec.instrumentCollection(baseSpec)
 			require.NoError(t, err)
 			if diff := cmp.Diff(
-				tc.expectedLoadHooksRequests,
+				tc.expectedInstrumentCollectionRequests,
 				loadHooksRequests,
-				protocmp.SortRepeated(func(a, b *datapathplugins.LoadHooksRequest_Hook) bool {
+				protocmp.SortRepeated(func(a, b *datapathplugins.InstrumentCollectionRequest_Hook) bool {
 					if a.Target == b.Target {
 						return a.Type < b.Type
 					}
@@ -1204,11 +1227,11 @@ func (r fakePluginRegistry) closeAll() {
 }
 
 type transaction struct {
-	prepareHooksReq  *datapathplugins.PrepareHooksRequest
-	prepareHooksResp *datapathplugins.PrepareHooksResponse
+	prepareHooksReq  *datapathplugins.PrepareCollectionRequest
+	prepareHooksResp *datapathplugins.PrepareCollectionResponse
 	prepareHooksErr  error
-	loadHooksReq     *datapathplugins.LoadHooksRequest
-	loadHooksResp    *datapathplugins.LoadHooksResponse
+	loadHooksReq     *datapathplugins.InstrumentCollectionRequest
+	loadHooksResp    *datapathplugins.InstrumentCollectionResponse
 	loadHooksErr     error
 }
 
@@ -1230,7 +1253,7 @@ func (p *fakePlugin) AttachmentPolicy() api_v2alpha1.CiliumDatapathPluginAttachm
 	return p.attachmentPolicy
 }
 
-func (p *fakePlugin) PrepareHooks(ctx context.Context, in *datapathplugins.PrepareHooksRequest, opts ...grpc.CallOption) (*datapathplugins.PrepareHooksResponse, error) {
+func (p *fakePlugin) PrepareCollection(ctx context.Context, in *datapathplugins.PrepareCollectionRequest, opts ...grpc.CallOption) (*datapathplugins.PrepareCollectionResponse, error) {
 	p.transaction.prepareHooksReq = in
 
 	if p.transaction.prepareHooksErr != nil {
@@ -1240,7 +1263,7 @@ func (p *fakePlugin) PrepareHooks(ctx context.Context, in *datapathplugins.Prepa
 	return p.transaction.prepareHooksResp, nil
 }
 
-func (p *fakePlugin) LoadHooks(ctx context.Context, in *datapathplugins.LoadHooksRequest, opts ...grpc.CallOption) (*datapathplugins.LoadHooksResponse, error) {
+func (p *fakePlugin) InstrumentCollection(ctx context.Context, in *datapathplugins.InstrumentCollectionRequest, opts ...grpc.CallOption) (*datapathplugins.InstrumentCollectionResponse, error) {
 	p.transaction.loadHooksReq = in
 
 	if p.transaction.loadHooksErr != nil {
@@ -1330,13 +1353,13 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			name: "pre and post hooks basic",
 			transactions: map[string]transaction{
 				"plugin_a": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -1344,106 +1367,106 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
 					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
+					prepareHooksResp: &datapathplugins.PrepareCollectionResponse{
+						Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
+					loadHooksReq: &datapathplugins.InstrumentCollectionRequest{
+						Collection: &datapathplugins.InstrumentCollectionRequest_Collection{
+							Programs: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
+							Maps: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map{
 								"seq":  {},
 								".bss": {},
 							},
 						},
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+						Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksResp: &datapathplugins.LoadHooksResponse{},
+					loadHooksResp: &datapathplugins.InstrumentCollectionResponse{},
 				},
 				"plugin_b": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -1451,8 +1474,8 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
 					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
+					prepareHooksResp: &datapathplugins.PrepareCollectionResponse{
+						Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
@@ -1472,52 +1495,52 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						},
 						Cookie: "plugin_b_cookie",
 					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
+					loadHooksReq: &datapathplugins.InstrumentCollectionRequest{
+						Collection: &datapathplugins.InstrumentCollectionRequest_Collection{
+							Programs: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
+							Maps: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map{
 								"seq":  {},
 								".bss": {},
 							},
 						},
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+						Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_b"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_b"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_b"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_b"),
 								},
 							},
 						},
 						Cookie: "plugin_b_cookie",
 					},
-					loadHooksResp: &datapathplugins.LoadHooksResponse{},
+					loadHooksResp: &datapathplugins.InstrumentCollectionResponse{},
 				},
 			},
 			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
@@ -1572,16 +1595,16 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			},
 		},
 		{
-			name: "plugin_b returns an error in PrepareHooks() with AttachmentPolicyAlways",
+			name: "plugin_b returns an error in PrepareCollection() with AttachmentPolicyAlways",
 			transactions: map[string]transaction{
 				"plugin_a": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -1589,106 +1612,106 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
 					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
+					prepareHooksResp: &datapathplugins.PrepareCollectionResponse{
+						Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
+					loadHooksReq: &datapathplugins.InstrumentCollectionRequest{
+						Collection: &datapathplugins.InstrumentCollectionRequest_Collection{
+							Programs: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
+							Maps: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map{
 								"seq":  {},
 								".bss": {},
 							},
 						},
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+						Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksResp: &datapathplugins.LoadHooksResponse{},
+					loadHooksResp: &datapathplugins.InstrumentCollectionResponse{},
 				},
 				"plugin_b": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -1706,16 +1729,16 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			expectedErr: errors.New("some error"),
 		},
 		{
-			name: "plugin_b returns an error in PrepareHooks() with AttachmentPolicyBestEffort",
+			name: "plugin_b returns an error in PrepareCollection() with AttachmentPolicyBestEffort",
 			transactions: map[string]transaction{
 				"plugin_a": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -1723,106 +1746,106 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
 					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
+					prepareHooksResp: &datapathplugins.PrepareCollectionResponse{
+						Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
+					loadHooksReq: &datapathplugins.InstrumentCollectionRequest{
+						Collection: &datapathplugins.InstrumentCollectionRequest_Collection{
+							Programs: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
+							Maps: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map{
 								"seq":  {},
 								".bss": {},
 							},
 						},
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+						Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksResp: &datapathplugins.LoadHooksResponse{},
+					loadHooksResp: &datapathplugins.InstrumentCollectionResponse{},
 				},
 				"plugin_b": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -1871,16 +1894,16 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			},
 		},
 		{
-			name: "plugin_b returns an error in PrepareHooks() with AttachmentPolicyEventually",
+			name: "plugin_b returns an error in InstrumentCollection() with AttachmentPolicyAlways",
 			transactions: map[string]transaction{
 				"plugin_a": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -1888,106 +1911,106 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
 					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
+					prepareHooksResp: &datapathplugins.PrepareCollectionResponse{
+						Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
+					loadHooksReq: &datapathplugins.InstrumentCollectionRequest{
+						Collection: &datapathplugins.InstrumentCollectionRequest_Collection{
+							Programs: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
+							Maps: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map{
 								"seq":  {},
 								".bss": {},
 							},
 						},
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+						Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksResp: &datapathplugins.LoadHooksResponse{},
+					loadHooksResp: &datapathplugins.InstrumentCollectionResponse{},
 				},
 				"plugin_b": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -1995,173 +2018,8 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
 					},
-					prepareHooksErr: errors.New("some error"),
-				},
-			},
-			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
-				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
-				"plugin_b": api_v2alpha1.AttachmentPolicyEventually,
-			},
-			inputValues: inputValues{
-				base: baseInputValues{
-					aRet: 1,
-					bRet: 1,
-				},
-				hook: map[string]hookInputValues{
-					"plugin_a": {
-						beforeProgramARet: -1,
-						afterProgramARet:  -1,
-						beforeProgramBRet: -1,
-						afterProgramBRet:  -1,
-					},
-				},
-			},
-			expectedOutputValues: outputValues{
-				base: baseOutputValues{
-					aSeq: 2,
-					bSeq: 2,
-					retA: 1,
-					retB: 1,
-				},
-				hook: map[string]hookOutputValues{
-					"plugin_a": {
-						beforeProgramASeq:     1,
-						afterProgramASeq:      3,
-						afterProgramARetParam: 1,
-						beforeProgramBSeq:     1,
-						afterProgramBSeq:      3,
-						afterProgramBRetParam: 1,
-					},
-				},
-			},
-		},
-		{
-			name: "plugin_b returns an error in LoadHooks() with AttachmentPolicyAlways",
-			transactions: map[string]transaction{
-				"plugin_a": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
-								"program_a": {},
-								"program_b": {},
-							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
-								"seq":  {},
-								".bss": {},
-							},
-						},
-						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
-						AttachmentContext: &datapathplugins.AttachmentContext{},
-					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
-									{
-										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
-									},
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
-									{
-										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
-									},
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
-									{
-										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
-									},
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
-									{
-										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
-									},
-								},
-							},
-						},
-						Cookie: "plugin_a_cookie",
-					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
-								"program_a": {},
-								"program_b": {},
-							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
-								"seq":  {},
-								".bss": {},
-							},
-						},
-						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
-						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: preHookSubprogName("plugin_a"),
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: postHookSubprogName("plugin_a"),
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: preHookSubprogName("plugin_a"),
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: postHookSubprogName("plugin_a"),
-								},
-							},
-						},
-						Cookie: "plugin_a_cookie",
-					},
-					loadHooksResp: &datapathplugins.LoadHooksResponse{},
-				},
-				"plugin_b": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
-								"program_a": {},
-								"program_b": {},
-							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
-								"seq":  {},
-								".bss": {},
-							},
-						},
-						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
-						AttachmentContext: &datapathplugins.AttachmentContext{},
-					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
+					prepareHooksResp: &datapathplugins.PrepareCollectionResponse{
+						Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
@@ -2181,45 +2039,45 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						},
 						Cookie: "plugin_b_cookie",
 					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
+					loadHooksReq: &datapathplugins.InstrumentCollectionRequest{
+						Collection: &datapathplugins.InstrumentCollectionRequest_Collection{
+							Programs: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
+							Maps: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map{
 								"seq":  {},
 								".bss": {},
 							},
 						},
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+						Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_b"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_b"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_b"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_b"),
 								},
 							},
@@ -2236,16 +2094,16 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			expectedErr: errors.New("some error"),
 		},
 		{
-			name: "plugin_b returns an error in LoadHooks() with AttachmentPolicyBestEffort",
+			name: "plugin_b returns an error in InstrumentCollection() with AttachmentPolicyBestEffort",
 			transactions: map[string]transaction{
 				"plugin_a": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -2253,106 +2111,106 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
 					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
+					prepareHooksResp: &datapathplugins.PrepareCollectionResponse{
+						Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
+								Constraints: []*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint{
 									{
 										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
+										Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE,
 									},
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
+					loadHooksReq: &datapathplugins.InstrumentCollectionRequest{
+						Collection: &datapathplugins.InstrumentCollectionRequest_Collection{
+							Programs: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
+							Maps: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map{
 								"seq":  {},
 								".bss": {},
 							},
 						},
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+						Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_a"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_a"),
 								},
 							},
 						},
 						Cookie: "plugin_a_cookie",
 					},
-					loadHooksResp: &datapathplugins.LoadHooksResponse{},
+					loadHooksResp: &datapathplugins.InstrumentCollectionResponse{},
 				},
 				"plugin_b": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
+					prepareHooksReq: &datapathplugins.PrepareCollectionRequest{
+						Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+							Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
+							Maps: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
 								"seq":  {},
 								".bss": {},
 							},
@@ -2360,8 +2218,8 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
 					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
+					prepareHooksResp: &datapathplugins.PrepareCollectionResponse{
+						Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
@@ -2381,45 +2239,45 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 						},
 						Cookie: "plugin_b_cookie",
 					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
+					loadHooksReq: &datapathplugins.InstrumentCollectionRequest{
+						Collection: &datapathplugins.InstrumentCollectionRequest_Collection{
+							Programs: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program{
 								"program_a": {},
 								"program_b": {},
 							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
+							Maps: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map{
 								"seq":  {},
 								".bss": {},
 							},
 						},
 						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
 						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
+						Hooks: []*datapathplugins.InstrumentCollectionRequest_Hook{
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_b"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_b"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_PRE,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: preHookSubprogName("plugin_b"),
 								},
 							},
 							{
 								Type:   datapathplugins.HookType_POST,
 								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+								AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 									SubprogName: postHookSubprogName("plugin_b"),
 								},
 							},
@@ -2432,206 +2290,6 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
 				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
 				"plugin_b": api_v2alpha1.AttachmentPolicyBestEffort,
-			},
-			expectedErr: errors.New("some error"),
-		},
-		{
-			name: "plugin_b returns an error in LoadHooks() with AttachmentPolicyEventually",
-			transactions: map[string]transaction{
-				"plugin_a": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
-								"program_a": {},
-								"program_b": {},
-							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
-								"seq":  {},
-								".bss": {},
-							},
-						},
-						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
-						AttachmentContext: &datapathplugins.AttachmentContext{},
-					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
-									{
-										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
-									},
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_a",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
-									{
-										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
-									},
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
-									{
-										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
-									},
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_b",
-								Constraints: []*datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint{
-									{
-										Plugin: "plugin_b",
-										Order:  datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE,
-									},
-								},
-							},
-						},
-						Cookie: "plugin_a_cookie",
-					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
-								"program_a": {},
-								"program_b": {},
-							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
-								"seq":  {},
-								".bss": {},
-							},
-						},
-						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
-						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: preHookSubprogName("plugin_a"),
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: postHookSubprogName("plugin_a"),
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: preHookSubprogName("plugin_a"),
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: postHookSubprogName("plugin_a"),
-								},
-							},
-						},
-						Cookie: "plugin_a_cookie",
-					},
-					loadHooksResp: &datapathplugins.LoadHooksResponse{},
-				},
-				"plugin_b": {
-					prepareHooksReq: &datapathplugins.PrepareHooksRequest{
-						Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-							Programs: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{
-								"program_a": {},
-								"program_b": {},
-							},
-							Maps: map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{
-								"seq":  {},
-								".bss": {},
-							},
-						},
-						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
-						AttachmentContext: &datapathplugins.AttachmentContext{},
-					},
-					prepareHooksResp: &datapathplugins.PrepareHooksResponse{
-						Hooks: []*datapathplugins.PrepareHooksResponse_HookSpec{
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_a",
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_a",
-							},
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_b",
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_b",
-							},
-						},
-						Cookie: "plugin_b_cookie",
-					},
-					loadHooksReq: &datapathplugins.LoadHooksRequest{
-						Collection: &datapathplugins.LoadHooksRequest_Collection{
-							Programs: map[string]*datapathplugins.LoadHooksRequest_Collection_Program{
-								"program_a": {},
-								"program_b": {},
-							},
-							Maps: map[string]*datapathplugins.LoadHooksRequest_Collection_Map{
-								"seq":  {},
-								".bss": {},
-							},
-						},
-						LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
-						AttachmentContext: &datapathplugins.AttachmentContext{},
-						Hooks: []*datapathplugins.LoadHooksRequest_Hook{
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: preHookSubprogName("plugin_b"),
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_a",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: postHookSubprogName("plugin_b"),
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_PRE,
-								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: preHookSubprogName("plugin_b"),
-								},
-							},
-							{
-								Type:   datapathplugins.HookType_POST,
-								Target: "program_b",
-								AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
-									SubprogName: postHookSubprogName("plugin_b"),
-								},
-							},
-						},
-						Cookie: "plugin_b_cookie",
-					},
-					loadHooksErr: errors.New("some error"),
-				},
-			},
-			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
-				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
-				"plugin_b": api_v2alpha1.AttachmentPolicyEventually,
 			},
 			expectedErr: errors.New("some error"),
 		},
@@ -2698,17 +2356,17 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 					cmp.AllowUnexported(transaction{}),
 					cmpopts.EquateErrors(),
 					protocmp.Transform(),
-					protocmp.SortRepeated(func(a, b *datapathplugins.LoadHooksRequest_Hook) bool {
+					protocmp.SortRepeated(func(a, b *datapathplugins.InstrumentCollectionRequest_Hook) bool {
 						if a.Target == b.Target {
 							return a.Type < b.Type
 						}
 
 						return a.Target < b.Target
 					}),
-					protocmp.IgnoreFields(&datapathplugins.LoadHooksRequest_Collection_Map{}, "id"),
-					protocmp.IgnoreFields(&datapathplugins.LoadHooksRequest_Collection_Program{}, "id"),
-					protocmp.IgnoreFields(&datapathplugins.LoadHooksRequest_Hook{}, "pin_path"),
-					protocmp.IgnoreFields(&datapathplugins.LoadHooksRequest_Hook_AttachTarget{}, "program_id"),
+					protocmp.IgnoreFields(&datapathplugins.InstrumentCollectionRequest_Collection_Map{}, "id"),
+					protocmp.IgnoreFields(&datapathplugins.InstrumentCollectionRequest_Collection_Program{}, "id"),
+					protocmp.IgnoreFields(&datapathplugins.InstrumentCollectionRequest_Hook{}, "pin_path"),
+					protocmp.IgnoreFields(&datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{}, "program_id"),
 				); diff != "" {
 					t.Fatalf("transaction for plugin %s did not match what was expected (-want +got):\n%s", name, diff)
 				}
@@ -2730,3 +2388,5 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 		})
 	}
 }
+
+// TODO: links should be cleaned up when switching modes

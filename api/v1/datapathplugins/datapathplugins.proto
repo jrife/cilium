@@ -8,8 +8,8 @@ package datapathplugins;
 option go_package = "github.com/cilium/cilium/api/v1/datapathplugins";
 
 service DatapathPlugin {
-    rpc PrepareHooks(PrepareHooksRequest) returns (PrepareHooksResponse) {}
-    rpc LoadHooks(LoadHooksRequest) returns (LoadHooksResponse) {}
+    rpc PrepareCollection(PrepareCollectionRequest) returns (PrepareCollectionResponse) {}
+    rpc InstrumentCollection(InstrumentCollectionRequest) returns (InstrumentCollectionResponse) {}
 }
 
 // LocalNodeConfig is Cilium's current config for this node. It may be used
@@ -49,7 +49,7 @@ enum HookType {
 // about the attachment point, collection, and local node config. The plugin
 // decides which hooks it would like to insert, where it would like to insert
 // them, and informs Cilium in the PrepareHooksResponse.
-message PrepareHooksRequest {
+message PrepareCollectionRequest {
     message CollectionSpec {
         message ProgramSpec {
         }
@@ -65,7 +65,7 @@ message PrepareHooksRequest {
     AttachmentContext attachment_context = 3;
 }
 
-message PrepareHooksResponse {
+message PrepareCollectionResponse {
     message HookSpec {
         // An OrderingConstraint is a constraint about where this hook should
         // go at this hook point relative to other plugins' hooks.
@@ -85,6 +85,8 @@ message PrepareHooksResponse {
     }
 
     repeated HookSpec hooks = 1;
+    // repeated MapReplacement map_replacements = 2;
+    // ...
     // May be used by a plugin to associate a LoadHooksRequest with its
     // preceding PrepareHooksRequest or carry other metadata between phases
     // that may be helpful.
@@ -95,7 +97,7 @@ message PrepareHooksResponse {
 // dispatcher programs that are meant to replace existing entrypoints in the
 // collection. Cilium sends a round of requests to any plugins that wanted to
 // inject hooks.
-message LoadHooksRequest {
+message InstrumentCollectionRequest {
     // Program and map IDs in the collection
     message Collection {
         // Would contain information about programs and maps in this collection
@@ -135,5 +137,5 @@ message LoadHooksRequest {
     string cookie = 5;
 }
 
-message LoadHooksResponse {
+message InstrumentCollectionResponse {
 }

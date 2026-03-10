@@ -92,7 +92,7 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 	}
 
 	pluginMap := l.pluginRegistry.Plugins()
-	loadHooksRequests, err := prepareHooks(ctx, logger, pluginMap, spec, lnc, attachmentContext)
+	instrumentCollectionRequests, err := prepareCollection(ctx, logger, pluginMap, spec, lnc, attachmentContext)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("preparing hooks: %w", err)
 	}
@@ -107,7 +107,7 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 		}
 	}()
 
-	commit, cleanup, err = loadHooks(ctx, logger, coll, commit, pluginMap, loadHooksRequests, attachmentContext, l.pluginOperationsDir, linksDirs)
+	commit, cleanup, err = instrumentCollection(ctx, logger, coll, commit, pluginMap, instrumentCollectionRequests, attachmentContext, l.pluginOperationsDir, linksDirs)
 	if err != nil {
 		return coll, commit, nil, fmt.Errorf("loading hooks: %w", err)
 	}
@@ -115,38 +115,38 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 	return coll, commit, cleanup, nil
 }
 
-func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string]plugins.Plugin, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext) (_ map[string]*datapathplugins.LoadHooksRequest, err error) {
-	req := &datapathplugins.PrepareHooksRequest{
+func prepareCollection(ctx context.Context, logger *slog.Logger, pluginMap map[string]plugins.Plugin, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext) (_ map[string]*datapathplugins.InstrumentCollectionRequest, err error) {
+	req := &datapathplugins.PrepareCollectionRequest{
 		AttachmentContext: attachmentContext,
 		LocalNodeConfig:   &datapathplugins.LocalNodeConfig{},
-		Collection: &datapathplugins.PrepareHooksRequest_CollectionSpec{
-			Programs: make(map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec),
-			Maps:     make(map[string]*datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec),
+		Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+			Programs: make(map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec),
+			Maps:     make(map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec),
 		},
 	}
 
 	for name := range spec.Programs {
-		req.Collection.Programs[name] = &datapathplugins.PrepareHooksRequest_CollectionSpec_ProgramSpec{}
+		req.Collection.Programs[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{}
 	}
 	for name := range spec.Maps {
-		req.Collection.Maps[name] = &datapathplugins.PrepareHooksRequest_CollectionSpec_MapSpec{}
+		req.Collection.Maps[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{}
 	}
 
 	type prepareResult struct {
 		plugin plugins.Plugin
 		err    error
-		resp   *datapathplugins.PrepareHooksResponse
+		resp   *datapathplugins.PrepareCollectionResponse
 	}
 
 	prepareResults := make(chan prepareResult)
 	for _, p := range pluginMap {
 		go func(p plugins.Plugin) {
-			resp, err := p.PrepareHooks(ctx, req)
+			resp, err := p.PrepareCollection(ctx, req)
 			prepareResults <- prepareResult{plugin: p, err: err, resp: resp}
 		}(p)
 	}
 
-	responses := make(map[string]*datapathplugins.PrepareHooksResponse)
+	responses := make(map[string]*datapathplugins.PrepareCollectionResponse)
 	hooksSpec := newHooksSpec()
 
 	for len(responses) != len(pluginMap) {
@@ -154,17 +154,17 @@ func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string
 		select {
 		case r = <-prepareResults:
 		case <-ctx.Done():
-			return nil, fmt.Errorf("waiting for PrepareHooks() responses: %w", ctx.Err())
+			return nil, fmt.Errorf("waiting for PrepareCollection() responses: %w", ctx.Err())
 		}
 
 		if r.err != nil {
-			logger.Error("PrepareHooks() failed",
+			logger.Error("PrepareCollection() failed",
 				logfields.Error, r.err,
 				"plugin", r.plugin.Name(),
 			)
 
 			if r.plugin.AttachmentPolicy() == api_v2alpha1.AttachmentPolicyAlways {
-				err = errors.Join(err, fmt.Errorf("%s: PrepareHooks(): %w", r.plugin.Name(), r.err))
+				err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): %w", r.plugin.Name(), r.err))
 			}
 
 			delete(pluginMap, r.plugin.Name())
@@ -174,18 +174,18 @@ func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string
 			responses[r.plugin.Name()] = r.resp
 		}
 
-		logger.Debug("PrepareHooks() succeeded", "plugin", r.plugin.Name())
+		logger.Debug("PrepareCollection() succeeded", "plugin", r.plugin.Name())
 	process_hooks:
 		for _, h := range r.resp.Hooks {
 			ps := spec.Programs[h.Target]
 			if ps == nil {
-				err = errors.Join(err, fmt.Errorf("%s: PrepareHooks(): target program \"%s\" does not exist in the collection spec", r.plugin.Name(), h.Target))
+				err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): target program \"%s\" does not exist in the collection spec", r.plugin.Name(), h.Target))
 
 				continue
 			}
 
 			if h.Type != datapathplugins.HookType_PRE && h.Type != datapathplugins.HookType_POST {
-				err = errors.Join(err, fmt.Errorf("%s: PrepareHooks(): invalid hook type %v", r.plugin.Name(), h.Type))
+				err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): invalid hook type %v", r.plugin.Name(), h.Type))
 
 				continue
 			}
@@ -195,7 +195,7 @@ func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string
 			for _, c := range h.Constraints {
 				otherPlugin := pluginMap[c.Plugin]
 				if otherPlugin == nil {
-					logger.Debug("PrepareHooks() constraint references unknown plugin",
+					logger.Debug("PrepareCollection() constraint references unknown plugin",
 						"plugin", r.plugin.Name(),
 						"otherPlugin", c.Plugin,
 					)
@@ -204,12 +204,12 @@ func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string
 				}
 
 				switch c.Order {
-				case datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE:
+				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE:
 					hooksSpec.hook(ps.Name, h.Type).before(r.plugin.Name(), otherPlugin.Name())
-				case datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_AFTER:
+				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_AFTER:
 					hooksSpec.hook(ps.Name, h.Type).after(r.plugin.Name(), otherPlugin.Name())
 				default:
-					err = errors.Join(err, fmt.Errorf("%s: PrepareHooks(): invalid ordering constraint: %v", r.plugin.Name(), h.Type))
+					err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): invalid ordering constraint: %v", r.plugin.Name(), h.Type))
 					continue process_hooks
 				}
 			}
@@ -220,23 +220,23 @@ func prepareHooks(ctx context.Context, logger *slog.Logger, pluginMap map[string
 		return nil, err
 	}
 
-	loadHooksRequests, err := hooksSpec.instrumentCollection(spec)
+	instrumentCollectionRequests, err := hooksSpec.instrumentCollection(spec)
 	if err != nil {
 		return nil, fmt.Errorf("instrumenting collection: %w", err)
 	}
 
-	for plugin, req := range loadHooksRequests {
+	for plugin, req := range instrumentCollectionRequests {
 		prepareHooksResp := responses[plugin]
 		req.Cookie = prepareHooksResp.Cookie
-		req.Collection = &datapathplugins.LoadHooksRequest_Collection{
-			Programs: make(map[string]*datapathplugins.LoadHooksRequest_Collection_Program),
-			Maps:     make(map[string]*datapathplugins.LoadHooksRequest_Collection_Map),
+		req.Collection = &datapathplugins.InstrumentCollectionRequest_Collection{
+			Programs: make(map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program),
+			Maps:     make(map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map),
 		}
 		req.AttachmentContext = attachmentContext
 		req.LocalNodeConfig = &datapathplugins.LocalNodeConfig{} // TODO
 	}
 
-	return loadHooksRequests, nil
+	return instrumentCollectionRequests, nil
 }
 
 func purgeLinksDirs(linksDirs []string) error {
@@ -279,16 +279,16 @@ func mapID(m *ebpf.Map) (uint32, error) {
 	return uint32(id), nil
 }
 
-func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, commit func() error, pluginMap map[string]plugins.Plugin, loadHooksRequests map[string]*datapathplugins.LoadHooksRequest, attachmentContext *datapathplugins.AttachmentContext, opsDir string, linksDirs []string) (_ func() error, _ func(), err error) {
+func instrumentCollection(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, commit func() error, pluginMap map[string]plugins.Plugin, instrumentCollectionRequests map[string]*datapathplugins.InstrumentCollectionRequest, attachmentContext *datapathplugins.AttachmentContext, opsDir string, linksDirs []string) (_ func() error, _ func(), err error) {
 	type loadResult struct {
 		plugin plugins.Plugin
 		err    error
-		resp   *datapathplugins.LoadHooksResponse
+		resp   *datapathplugins.InstrumentCollectionResponse
 	}
 
 	loadResults := make(chan loadResult)
 
-	for plugin, req := range loadHooksRequests {
+	for plugin, req := range instrumentCollectionRequests {
 		requestID := uuid.New().String()
 		operationDir := bpffsPluginOperationDir(opsDir, plugin, requestID)
 
@@ -298,7 +298,7 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 
 		defer func() {
 			if err := bpf.Remove(operationDir); err != nil {
-				logger.Error("Failed to clean up LoadHooks() operation directory",
+				logger.Error("Failed to clean up InstrumentCollection() operation directory",
 					logfields.Error, err,
 					logfields.Path, operationDir,
 				)
@@ -311,7 +311,7 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 				return nil, nil, fmt.Errorf("getting ID for program %s: %w", name, err)
 			}
 
-			req.Collection.Programs[name] = &datapathplugins.LoadHooksRequest_Collection_Program{
+			req.Collection.Programs[name] = &datapathplugins.InstrumentCollectionRequest_Collection_Program{
 				Id: id,
 			}
 		}
@@ -320,7 +320,7 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 			if err != nil {
 				return nil, nil, fmt.Errorf("getting ID for map %s: %w", name, err)
 			}
-			req.Collection.Maps[name] = &datapathplugins.LoadHooksRequest_Collection_Map{
+			req.Collection.Maps[name] = &datapathplugins.InstrumentCollectionRequest_Collection_Map{
 				Id: id,
 			}
 		}
@@ -328,7 +328,7 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 		for _, hook := range req.Hooks {
 			prog := coll.Programs[hook.Target]
 			if prog == nil {
-				return nil, nil, fmt.Errorf("LoadHooksRequest for %s references a non-existant program: %s", plugin, hook.Target)
+				return nil, nil, fmt.Errorf("InstrumentCollectionRequest for %s references a non-existant program: %s", plugin, hook.Target)
 			}
 
 			id, err := progID(prog)
@@ -340,9 +340,9 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 			hook.PinPath = filepath.Join(operationDir, fmt.Sprintf("%s_%s", hook.Target, hook.AttachTarget.SubprogName))
 		}
 
-		go func(req *datapathplugins.LoadHooksRequest) {
+		go func(req *datapathplugins.InstrumentCollectionRequest) {
 			p := pluginMap[plugin]
-			resp, err := p.LoadHooks(ctx, req)
+			resp, err := p.InstrumentCollection(ctx, req)
 			loadResults <- loadResult{plugin: p, err: err, resp: resp}
 		}(req)
 	}
@@ -367,29 +367,29 @@ func loadHooks(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, 
 		}
 	}()
 
-	for len(loadHooksRequests) > 0 {
+	for len(instrumentCollectionRequests) > 0 {
 		var r loadResult
 		select {
 		case r = <-loadResults:
 		case <-ctx.Done():
-			return nil, nil, fmt.Errorf("waiting for LoadHooks() responses: %w", ctx.Err())
+			return nil, nil, fmt.Errorf("waiting for InstrumentCollection() responses: %w", ctx.Err())
 		}
 
-		req := loadHooksRequests[r.plugin.Name()]
-		delete(loadHooksRequests, r.plugin.Name())
+		req := instrumentCollectionRequests[r.plugin.Name()]
+		delete(instrumentCollectionRequests, r.plugin.Name())
 
 		if r.err != nil {
-			logger.Error("LoadHooks() failed",
+			logger.Error("InstrumentCollection() failed",
 				logfields.Error, r.err,
 				"plugin", r.plugin.Name(),
 			)
 
-			err = errors.Join(err, fmt.Errorf("%s: LoadHooks(): %w", r.plugin.Name(), r.err))
+			err = errors.Join(err, fmt.Errorf("%s: InstrumentCollection(): %w", r.plugin.Name(), r.err))
 
 			continue
 		}
 
-		logger.Debug("LoadHooks() succeeded", "plugin", r.plugin.Name())
+		logger.Debug("InstrumentCollection() succeeded", "plugin", r.plugin.Name())
 
 		for _, hook := range req.Hooks {
 			prog, err := ebpf.LoadPinnedProgram(hook.PinPath, &ebpf.LoadPinOptions{})
@@ -473,9 +473,9 @@ func (hs *hooksSpec) hook(target string, hookType datapathplugins.HookType) *plu
 	return hs.hooks[target][hookType]
 }
 
-func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*datapathplugins.LoadHooksRequest, error) {
+func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*datapathplugins.InstrumentCollectionRequest, error) {
 	var err error
-	hooks := make(map[string]*datapathplugins.LoadHooksRequest)
+	hooks := make(map[string]*datapathplugins.InstrumentCollectionRequest)
 
 	for hookTarget, hookTypes := range hs.hooks {
 		pre, sortErr := hookTypes[datapathplugins.HookType_PRE].sort()
@@ -498,7 +498,7 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 	return hooks, err
 }
 
-func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.LoadHooksRequest) error {
+func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest) error {
 	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
 	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
 	if !hasFuncProto {
@@ -518,10 +518,10 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 			asm.JNE.Imm32(asm.R0, -1, "return"),
 		)
 		if hooks[plugin] == nil {
-			hooks[plugin] = &datapathplugins.LoadHooksRequest{}
+			hooks[plugin] = &datapathplugins.InstrumentCollectionRequest{}
 		}
-		hooks[plugin].Hooks = append(hooks[plugin].Hooks, &datapathplugins.LoadHooksRequest_Hook{
-			AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+		hooks[plugin].Hooks = append(hooks[plugin].Hooks, &datapathplugins.InstrumentCollectionRequest_Hook{
+			AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 				SubprogName: subprogName,
 			},
 			Type:   datapathplugins.HookType_PRE,
@@ -544,10 +544,10 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 			asm.JNE.Imm32(asm.R0, -1, "return"),
 		)
 		if hooks[plugin] == nil {
-			hooks[plugin] = &datapathplugins.LoadHooksRequest{}
+			hooks[plugin] = &datapathplugins.InstrumentCollectionRequest{}
 		}
-		hooks[plugin].Hooks = append(hooks[plugin].Hooks, &datapathplugins.LoadHooksRequest_Hook{
-			AttachTarget: &datapathplugins.LoadHooksRequest_Hook_AttachTarget{
+		hooks[plugin].Hooks = append(hooks[plugin].Hooks, &datapathplugins.InstrumentCollectionRequest_Hook{
+			AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
 				SubprogName: subprogName,
 			},
 			Type:   datapathplugins.HookType_POST,

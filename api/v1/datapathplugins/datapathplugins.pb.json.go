@@ -59,169 +59,169 @@ func (msg *AttachmentContext_TC_EndpointConfig) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *PrepareHooksRequest) MarshalJSON() ([]byte, error) {
+func (msg *PrepareCollectionRequest) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *PrepareHooksRequest) UnmarshalJSON(b []byte) error {
+func (msg *PrepareCollectionRequest) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *PrepareHooksRequest_CollectionSpec) MarshalJSON() ([]byte, error) {
+func (msg *PrepareCollectionRequest_CollectionSpec) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *PrepareHooksRequest_CollectionSpec) UnmarshalJSON(b []byte) error {
+func (msg *PrepareCollectionRequest_CollectionSpec) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *PrepareHooksRequest_CollectionSpec_ProgramSpec) MarshalJSON() ([]byte, error) {
+func (msg *PrepareCollectionRequest_CollectionSpec_ProgramSpec) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *PrepareHooksRequest_CollectionSpec_ProgramSpec) UnmarshalJSON(b []byte) error {
+func (msg *PrepareCollectionRequest_CollectionSpec_ProgramSpec) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *PrepareHooksRequest_CollectionSpec_MapSpec) MarshalJSON() ([]byte, error) {
+func (msg *PrepareCollectionRequest_CollectionSpec_MapSpec) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *PrepareHooksRequest_CollectionSpec_MapSpec) UnmarshalJSON(b []byte) error {
+func (msg *PrepareCollectionRequest_CollectionSpec_MapSpec) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *PrepareHooksResponse) MarshalJSON() ([]byte, error) {
+func (msg *PrepareCollectionResponse) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *PrepareHooksResponse) UnmarshalJSON(b []byte) error {
+func (msg *PrepareCollectionResponse) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *PrepareHooksResponse_HookSpec) MarshalJSON() ([]byte, error) {
+func (msg *PrepareCollectionResponse_HookSpec) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *PrepareHooksResponse_HookSpec) UnmarshalJSON(b []byte) error {
+func (msg *PrepareCollectionResponse_HookSpec) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *PrepareHooksResponse_HookSpec_OrderingConstraint) MarshalJSON() ([]byte, error) {
+func (msg *PrepareCollectionResponse_HookSpec_OrderingConstraint) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *PrepareHooksResponse_HookSpec_OrderingConstraint) UnmarshalJSON(b []byte) error {
+func (msg *PrepareCollectionResponse_HookSpec_OrderingConstraint) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *LoadHooksRequest) MarshalJSON() ([]byte, error) {
+func (msg *InstrumentCollectionRequest) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *LoadHooksRequest) UnmarshalJSON(b []byte) error {
+func (msg *InstrumentCollectionRequest) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *LoadHooksRequest_Collection) MarshalJSON() ([]byte, error) {
+func (msg *InstrumentCollectionRequest_Collection) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *LoadHooksRequest_Collection) UnmarshalJSON(b []byte) error {
+func (msg *InstrumentCollectionRequest_Collection) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *LoadHooksRequest_Collection_Program) MarshalJSON() ([]byte, error) {
+func (msg *InstrumentCollectionRequest_Collection_Program) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *LoadHooksRequest_Collection_Program) UnmarshalJSON(b []byte) error {
+func (msg *InstrumentCollectionRequest_Collection_Program) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *LoadHooksRequest_Collection_Map) MarshalJSON() ([]byte, error) {
+func (msg *InstrumentCollectionRequest_Collection_Map) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *LoadHooksRequest_Collection_Map) UnmarshalJSON(b []byte) error {
+func (msg *InstrumentCollectionRequest_Collection_Map) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *LoadHooksRequest_Hook) MarshalJSON() ([]byte, error) {
+func (msg *InstrumentCollectionRequest_Hook) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *LoadHooksRequest_Hook) UnmarshalJSON(b []byte) error {
+func (msg *InstrumentCollectionRequest_Hook) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *LoadHooksRequest_Hook_AttachTarget) MarshalJSON() ([]byte, error) {
+func (msg *InstrumentCollectionRequest_Hook_AttachTarget) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *LoadHooksRequest_Hook_AttachTarget) UnmarshalJSON(b []byte) error {
+func (msg *InstrumentCollectionRequest_Hook_AttachTarget) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *LoadHooksResponse) MarshalJSON() ([]byte, error) {
+func (msg *InstrumentCollectionResponse) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,
 	}.Marshal(msg)
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *LoadHooksResponse) UnmarshalJSON(b []byte) error {
+func (msg *InstrumentCollectionResponse) UnmarshalJSON(b []byte) error {
 	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
 }

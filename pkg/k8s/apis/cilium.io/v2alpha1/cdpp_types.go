@@ -34,7 +34,6 @@ type CiliumDatapathPluginAttachmentPolicy string
 const (
 	AttachmentPolicyAlways     CiliumDatapathPluginAttachmentPolicy = "Always"
 	AttachmentPolicyBestEffort CiliumDatapathPluginAttachmentPolicy = "BestEffort"
-	AttachmentPolicyEventually CiliumDatapathPluginAttachmentPolicy = "Eventually"
 )
 
 type CiliumDatapathPluginSpec struct {

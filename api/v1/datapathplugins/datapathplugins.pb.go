@@ -70,49 +70,49 @@ func (HookType) EnumDescriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{0}
 }
 
-type PrepareHooksResponse_HookSpec_OrderingConstraint_Order int32
+type PrepareCollectionResponse_HookSpec_OrderingConstraint_Order int32
 
 const (
-	PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE PrepareHooksResponse_HookSpec_OrderingConstraint_Order = 0
-	PrepareHooksResponse_HookSpec_OrderingConstraint_AFTER  PrepareHooksResponse_HookSpec_OrderingConstraint_Order = 1
+	PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE PrepareCollectionResponse_HookSpec_OrderingConstraint_Order = 0
+	PrepareCollectionResponse_HookSpec_OrderingConstraint_AFTER  PrepareCollectionResponse_HookSpec_OrderingConstraint_Order = 1
 )
 
-// Enum value maps for PrepareHooksResponse_HookSpec_OrderingConstraint_Order.
+// Enum value maps for PrepareCollectionResponse_HookSpec_OrderingConstraint_Order.
 var (
-	PrepareHooksResponse_HookSpec_OrderingConstraint_Order_name = map[int32]string{
+	PrepareCollectionResponse_HookSpec_OrderingConstraint_Order_name = map[int32]string{
 		0: "BEFORE",
 		1: "AFTER",
 	}
-	PrepareHooksResponse_HookSpec_OrderingConstraint_Order_value = map[string]int32{
+	PrepareCollectionResponse_HookSpec_OrderingConstraint_Order_value = map[string]int32{
 		"BEFORE": 0,
 		"AFTER":  1,
 	}
 )
 
-func (x PrepareHooksResponse_HookSpec_OrderingConstraint_Order) Enum() *PrepareHooksResponse_HookSpec_OrderingConstraint_Order {
-	p := new(PrepareHooksResponse_HookSpec_OrderingConstraint_Order)
+func (x PrepareCollectionResponse_HookSpec_OrderingConstraint_Order) Enum() *PrepareCollectionResponse_HookSpec_OrderingConstraint_Order {
+	p := new(PrepareCollectionResponse_HookSpec_OrderingConstraint_Order)
 	*p = x
 	return p
 }
 
-func (x PrepareHooksResponse_HookSpec_OrderingConstraint_Order) String() string {
+func (x PrepareCollectionResponse_HookSpec_OrderingConstraint_Order) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (PrepareHooksResponse_HookSpec_OrderingConstraint_Order) Descriptor() protoreflect.EnumDescriptor {
+func (PrepareCollectionResponse_HookSpec_OrderingConstraint_Order) Descriptor() protoreflect.EnumDescriptor {
 	return file_datapathplugins_datapathplugins_proto_enumTypes[1].Descriptor()
 }
 
-func (PrepareHooksResponse_HookSpec_OrderingConstraint_Order) Type() protoreflect.EnumType {
+func (PrepareCollectionResponse_HookSpec_OrderingConstraint_Order) Type() protoreflect.EnumType {
 	return &file_datapathplugins_datapathplugins_proto_enumTypes[1]
 }
 
-func (x PrepareHooksResponse_HookSpec_OrderingConstraint_Order) Number() protoreflect.EnumNumber {
+func (x PrepareCollectionResponse_HookSpec_OrderingConstraint_Order) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use PrepareHooksResponse_HookSpec_OrderingConstraint_Order.Descriptor instead.
-func (PrepareHooksResponse_HookSpec_OrderingConstraint_Order) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use PrepareCollectionResponse_HookSpec_OrderingConstraint_Order.Descriptor instead.
+func (PrepareCollectionResponse_HookSpec_OrderingConstraint_Order) EnumDescriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{3, 0, 0, 0}
 }
 
@@ -231,29 +231,29 @@ func (*AttachmentContext_Tc) isAttachmentContext_Context() {}
 // about the attachment point, collection, and local node config. The plugin
 // decides which hooks it would like to insert, where it would like to insert
 // them, and informs Cilium in the PrepareHooksResponse.
-type PrepareHooksRequest struct {
-	state             protoimpl.MessageState              `protogen:"open.v1"`
-	Collection        *PrepareHooksRequest_CollectionSpec `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
-	LocalNodeConfig   *LocalNodeConfig                    `protobuf:"bytes,2,opt,name=local_node_config,json=localNodeConfig,proto3" json:"local_node_config,omitempty"`
-	AttachmentContext *AttachmentContext                  `protobuf:"bytes,3,opt,name=attachment_context,json=attachmentContext,proto3" json:"attachment_context,omitempty"`
+type PrepareCollectionRequest struct {
+	state             protoimpl.MessageState                   `protogen:"open.v1"`
+	Collection        *PrepareCollectionRequest_CollectionSpec `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	LocalNodeConfig   *LocalNodeConfig                         `protobuf:"bytes,2,opt,name=local_node_config,json=localNodeConfig,proto3" json:"local_node_config,omitempty"`
+	AttachmentContext *AttachmentContext                       `protobuf:"bytes,3,opt,name=attachment_context,json=attachmentContext,proto3" json:"attachment_context,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
-func (x *PrepareHooksRequest) Reset() {
-	*x = PrepareHooksRequest{}
+func (x *PrepareCollectionRequest) Reset() {
+	*x = PrepareCollectionRequest{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PrepareHooksRequest) String() string {
+func (x *PrepareCollectionRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PrepareHooksRequest) ProtoMessage() {}
+func (*PrepareCollectionRequest) ProtoMessage() {}
 
-func (x *PrepareHooksRequest) ProtoReflect() protoreflect.Message {
+func (x *PrepareCollectionRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -265,35 +265,37 @@ func (x *PrepareHooksRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PrepareHooksRequest.ProtoReflect.Descriptor instead.
-func (*PrepareHooksRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use PrepareCollectionRequest.ProtoReflect.Descriptor instead.
+func (*PrepareCollectionRequest) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *PrepareHooksRequest) GetCollection() *PrepareHooksRequest_CollectionSpec {
+func (x *PrepareCollectionRequest) GetCollection() *PrepareCollectionRequest_CollectionSpec {
 	if x != nil {
 		return x.Collection
 	}
 	return nil
 }
 
-func (x *PrepareHooksRequest) GetLocalNodeConfig() *LocalNodeConfig {
+func (x *PrepareCollectionRequest) GetLocalNodeConfig() *LocalNodeConfig {
 	if x != nil {
 		return x.LocalNodeConfig
 	}
 	return nil
 }
 
-func (x *PrepareHooksRequest) GetAttachmentContext() *AttachmentContext {
+func (x *PrepareCollectionRequest) GetAttachmentContext() *AttachmentContext {
 	if x != nil {
 		return x.AttachmentContext
 	}
 	return nil
 }
 
-type PrepareHooksResponse struct {
-	state protoimpl.MessageState           `protogen:"open.v1"`
-	Hooks []*PrepareHooksResponse_HookSpec `protobuf:"bytes,1,rep,name=hooks,proto3" json:"hooks,omitempty"`
+type PrepareCollectionResponse struct {
+	state protoimpl.MessageState                `protogen:"open.v1"`
+	Hooks []*PrepareCollectionResponse_HookSpec `protobuf:"bytes,1,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	// repeated MapReplacement map_replacements = 2;
+	// ...
 	// May be used by a plugin to associate a LoadHooksRequest with its
 	// preceding PrepareHooksRequest or carry other metadata between phases
 	// that may be helpful.
@@ -302,20 +304,20 @@ type PrepareHooksResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PrepareHooksResponse) Reset() {
-	*x = PrepareHooksResponse{}
+func (x *PrepareCollectionResponse) Reset() {
+	*x = PrepareCollectionResponse{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PrepareHooksResponse) String() string {
+func (x *PrepareCollectionResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PrepareHooksResponse) ProtoMessage() {}
+func (*PrepareCollectionResponse) ProtoMessage() {}
 
-func (x *PrepareHooksResponse) ProtoReflect() protoreflect.Message {
+func (x *PrepareCollectionResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -327,19 +329,19 @@ func (x *PrepareHooksResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PrepareHooksResponse.ProtoReflect.Descriptor instead.
-func (*PrepareHooksResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use PrepareCollectionResponse.ProtoReflect.Descriptor instead.
+func (*PrepareCollectionResponse) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *PrepareHooksResponse) GetHooks() []*PrepareHooksResponse_HookSpec {
+func (x *PrepareCollectionResponse) GetHooks() []*PrepareCollectionResponse_HookSpec {
 	if x != nil {
 		return x.Hooks
 	}
 	return nil
 }
 
-func (x *PrepareHooksResponse) GetCookie() string {
+func (x *PrepareCollectionResponse) GetCookie() string {
 	if x != nil {
 		return x.Cookie
 	}
@@ -350,31 +352,31 @@ func (x *PrepareHooksResponse) GetCookie() string {
 // dispatcher programs that are meant to replace existing entrypoints in the
 // collection. Cilium sends a round of requests to any plugins that wanted to
 // inject hooks.
-type LoadHooksRequest struct {
-	state             protoimpl.MessageState       `protogen:"open.v1"`
-	Collection        *LoadHooksRequest_Collection `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
-	LocalNodeConfig   *LocalNodeConfig             `protobuf:"bytes,2,opt,name=local_node_config,json=localNodeConfig,proto3" json:"local_node_config,omitempty"`
-	AttachmentContext *AttachmentContext           `protobuf:"bytes,3,opt,name=attachment_context,json=attachmentContext,proto3" json:"attachment_context,omitempty"`
-	Hooks             []*LoadHooksRequest_Hook     `protobuf:"bytes,4,rep,name=hooks,proto3" json:"hooks,omitempty"`
-	Cookie            string                       `protobuf:"bytes,5,opt,name=cookie,proto3" json:"cookie,omitempty"`
+type InstrumentCollectionRequest struct {
+	state             protoimpl.MessageState                  `protogen:"open.v1"`
+	Collection        *InstrumentCollectionRequest_Collection `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	LocalNodeConfig   *LocalNodeConfig                        `protobuf:"bytes,2,opt,name=local_node_config,json=localNodeConfig,proto3" json:"local_node_config,omitempty"`
+	AttachmentContext *AttachmentContext                      `protobuf:"bytes,3,opt,name=attachment_context,json=attachmentContext,proto3" json:"attachment_context,omitempty"`
+	Hooks             []*InstrumentCollectionRequest_Hook     `protobuf:"bytes,4,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	Cookie            string                                  `protobuf:"bytes,5,opt,name=cookie,proto3" json:"cookie,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
-func (x *LoadHooksRequest) Reset() {
-	*x = LoadHooksRequest{}
+func (x *InstrumentCollectionRequest) Reset() {
+	*x = InstrumentCollectionRequest{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LoadHooksRequest) String() string {
+func (x *InstrumentCollectionRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LoadHooksRequest) ProtoMessage() {}
+func (*InstrumentCollectionRequest) ProtoMessage() {}
 
-func (x *LoadHooksRequest) ProtoReflect() protoreflect.Message {
+func (x *InstrumentCollectionRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -386,66 +388,66 @@ func (x *LoadHooksRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LoadHooksRequest.ProtoReflect.Descriptor instead.
-func (*LoadHooksRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstrumentCollectionRequest.ProtoReflect.Descriptor instead.
+func (*InstrumentCollectionRequest) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *LoadHooksRequest) GetCollection() *LoadHooksRequest_Collection {
+func (x *InstrumentCollectionRequest) GetCollection() *InstrumentCollectionRequest_Collection {
 	if x != nil {
 		return x.Collection
 	}
 	return nil
 }
 
-func (x *LoadHooksRequest) GetLocalNodeConfig() *LocalNodeConfig {
+func (x *InstrumentCollectionRequest) GetLocalNodeConfig() *LocalNodeConfig {
 	if x != nil {
 		return x.LocalNodeConfig
 	}
 	return nil
 }
 
-func (x *LoadHooksRequest) GetAttachmentContext() *AttachmentContext {
+func (x *InstrumentCollectionRequest) GetAttachmentContext() *AttachmentContext {
 	if x != nil {
 		return x.AttachmentContext
 	}
 	return nil
 }
 
-func (x *LoadHooksRequest) GetHooks() []*LoadHooksRequest_Hook {
+func (x *InstrumentCollectionRequest) GetHooks() []*InstrumentCollectionRequest_Hook {
 	if x != nil {
 		return x.Hooks
 	}
 	return nil
 }
 
-func (x *LoadHooksRequest) GetCookie() string {
+func (x *InstrumentCollectionRequest) GetCookie() string {
 	if x != nil {
 		return x.Cookie
 	}
 	return ""
 }
 
-type LoadHooksResponse struct {
+type InstrumentCollectionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LoadHooksResponse) Reset() {
-	*x = LoadHooksResponse{}
+func (x *InstrumentCollectionResponse) Reset() {
+	*x = InstrumentCollectionResponse{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LoadHooksResponse) String() string {
+func (x *InstrumentCollectionResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LoadHooksResponse) ProtoMessage() {}
+func (*InstrumentCollectionResponse) ProtoMessage() {}
 
-func (x *LoadHooksResponse) ProtoReflect() protoreflect.Message {
+func (x *InstrumentCollectionResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -457,8 +459,8 @@ func (x *LoadHooksResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LoadHooksResponse.ProtoReflect.Descriptor instead.
-func (*LoadHooksResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstrumentCollectionResponse.ProtoReflect.Descriptor instead.
+func (*InstrumentCollectionResponse) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{5}
 }
 
@@ -543,28 +545,28 @@ func (*AttachmentContext_TC_EndpointConfig) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{1, 0, 0}
 }
 
-type PrepareHooksRequest_CollectionSpec struct {
-	state         protoimpl.MessageState                                     `protogen:"open.v1"`
-	Programs      map[string]*PrepareHooksRequest_CollectionSpec_ProgramSpec `protobuf:"bytes,1,rep,name=programs,proto3" json:"programs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Maps          map[string]*PrepareHooksRequest_CollectionSpec_MapSpec     `protobuf:"bytes,2,rep,name=maps,proto3" json:"maps,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+type PrepareCollectionRequest_CollectionSpec struct {
+	state         protoimpl.MessageState                                          `protogen:"open.v1"`
+	Programs      map[string]*PrepareCollectionRequest_CollectionSpec_ProgramSpec `protobuf:"bytes,1,rep,name=programs,proto3" json:"programs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Maps          map[string]*PrepareCollectionRequest_CollectionSpec_MapSpec     `protobuf:"bytes,2,rep,name=maps,proto3" json:"maps,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PrepareHooksRequest_CollectionSpec) Reset() {
-	*x = PrepareHooksRequest_CollectionSpec{}
+func (x *PrepareCollectionRequest_CollectionSpec) Reset() {
+	*x = PrepareCollectionRequest_CollectionSpec{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PrepareHooksRequest_CollectionSpec) String() string {
+func (x *PrepareCollectionRequest_CollectionSpec) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PrepareHooksRequest_CollectionSpec) ProtoMessage() {}
+func (*PrepareCollectionRequest_CollectionSpec) ProtoMessage() {}
 
-func (x *PrepareHooksRequest_CollectionSpec) ProtoReflect() protoreflect.Message {
+func (x *PrepareCollectionRequest_CollectionSpec) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -576,45 +578,45 @@ func (x *PrepareHooksRequest_CollectionSpec) ProtoReflect() protoreflect.Message
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PrepareHooksRequest_CollectionSpec.ProtoReflect.Descriptor instead.
-func (*PrepareHooksRequest_CollectionSpec) Descriptor() ([]byte, []int) {
+// Deprecated: Use PrepareCollectionRequest_CollectionSpec.ProtoReflect.Descriptor instead.
+func (*PrepareCollectionRequest_CollectionSpec) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{2, 0}
 }
 
-func (x *PrepareHooksRequest_CollectionSpec) GetPrograms() map[string]*PrepareHooksRequest_CollectionSpec_ProgramSpec {
+func (x *PrepareCollectionRequest_CollectionSpec) GetPrograms() map[string]*PrepareCollectionRequest_CollectionSpec_ProgramSpec {
 	if x != nil {
 		return x.Programs
 	}
 	return nil
 }
 
-func (x *PrepareHooksRequest_CollectionSpec) GetMaps() map[string]*PrepareHooksRequest_CollectionSpec_MapSpec {
+func (x *PrepareCollectionRequest_CollectionSpec) GetMaps() map[string]*PrepareCollectionRequest_CollectionSpec_MapSpec {
 	if x != nil {
 		return x.Maps
 	}
 	return nil
 }
 
-type PrepareHooksRequest_CollectionSpec_ProgramSpec struct {
+type PrepareCollectionRequest_CollectionSpec_ProgramSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PrepareHooksRequest_CollectionSpec_ProgramSpec) Reset() {
-	*x = PrepareHooksRequest_CollectionSpec_ProgramSpec{}
+func (x *PrepareCollectionRequest_CollectionSpec_ProgramSpec) Reset() {
+	*x = PrepareCollectionRequest_CollectionSpec_ProgramSpec{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PrepareHooksRequest_CollectionSpec_ProgramSpec) String() string {
+func (x *PrepareCollectionRequest_CollectionSpec_ProgramSpec) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PrepareHooksRequest_CollectionSpec_ProgramSpec) ProtoMessage() {}
+func (*PrepareCollectionRequest_CollectionSpec_ProgramSpec) ProtoMessage() {}
 
-func (x *PrepareHooksRequest_CollectionSpec_ProgramSpec) ProtoReflect() protoreflect.Message {
+func (x *PrepareCollectionRequest_CollectionSpec_ProgramSpec) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -626,31 +628,31 @@ func (x *PrepareHooksRequest_CollectionSpec_ProgramSpec) ProtoReflect() protoref
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PrepareHooksRequest_CollectionSpec_ProgramSpec.ProtoReflect.Descriptor instead.
-func (*PrepareHooksRequest_CollectionSpec_ProgramSpec) Descriptor() ([]byte, []int) {
+// Deprecated: Use PrepareCollectionRequest_CollectionSpec_ProgramSpec.ProtoReflect.Descriptor instead.
+func (*PrepareCollectionRequest_CollectionSpec_ProgramSpec) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{2, 0, 0}
 }
 
-type PrepareHooksRequest_CollectionSpec_MapSpec struct {
+type PrepareCollectionRequest_CollectionSpec_MapSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PrepareHooksRequest_CollectionSpec_MapSpec) Reset() {
-	*x = PrepareHooksRequest_CollectionSpec_MapSpec{}
+func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) Reset() {
+	*x = PrepareCollectionRequest_CollectionSpec_MapSpec{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PrepareHooksRequest_CollectionSpec_MapSpec) String() string {
+func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PrepareHooksRequest_CollectionSpec_MapSpec) ProtoMessage() {}
+func (*PrepareCollectionRequest_CollectionSpec_MapSpec) ProtoMessage() {}
 
-func (x *PrepareHooksRequest_CollectionSpec_MapSpec) ProtoReflect() protoreflect.Message {
+func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -662,36 +664,36 @@ func (x *PrepareHooksRequest_CollectionSpec_MapSpec) ProtoReflect() protoreflect
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PrepareHooksRequest_CollectionSpec_MapSpec.ProtoReflect.Descriptor instead.
-func (*PrepareHooksRequest_CollectionSpec_MapSpec) Descriptor() ([]byte, []int) {
+// Deprecated: Use PrepareCollectionRequest_CollectionSpec_MapSpec.ProtoReflect.Descriptor instead.
+func (*PrepareCollectionRequest_CollectionSpec_MapSpec) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{2, 0, 1}
 }
 
-type PrepareHooksResponse_HookSpec struct {
+type PrepareCollectionResponse_HookSpec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// PRE/POST (for now)
 	Type HookType `protobuf:"varint,1,opt,name=type,proto3,enum=datapathplugins.HookType" json:"type,omitempty"`
 	// Which program are we instrumenting?
-	Target        string                                              `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
-	Constraints   []*PrepareHooksResponse_HookSpec_OrderingConstraint `protobuf:"bytes,3,rep,name=constraints,proto3" json:"constraints,omitempty"`
+	Target        string                                                   `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	Constraints   []*PrepareCollectionResponse_HookSpec_OrderingConstraint `protobuf:"bytes,3,rep,name=constraints,proto3" json:"constraints,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PrepareHooksResponse_HookSpec) Reset() {
-	*x = PrepareHooksResponse_HookSpec{}
+func (x *PrepareCollectionResponse_HookSpec) Reset() {
+	*x = PrepareCollectionResponse_HookSpec{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PrepareHooksResponse_HookSpec) String() string {
+func (x *PrepareCollectionResponse_HookSpec) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PrepareHooksResponse_HookSpec) ProtoMessage() {}
+func (*PrepareCollectionResponse_HookSpec) ProtoMessage() {}
 
-func (x *PrepareHooksResponse_HookSpec) ProtoReflect() protoreflect.Message {
+func (x *PrepareCollectionResponse_HookSpec) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -703,26 +705,26 @@ func (x *PrepareHooksResponse_HookSpec) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PrepareHooksResponse_HookSpec.ProtoReflect.Descriptor instead.
-func (*PrepareHooksResponse_HookSpec) Descriptor() ([]byte, []int) {
+// Deprecated: Use PrepareCollectionResponse_HookSpec.ProtoReflect.Descriptor instead.
+func (*PrepareCollectionResponse_HookSpec) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{3, 0}
 }
 
-func (x *PrepareHooksResponse_HookSpec) GetType() HookType {
+func (x *PrepareCollectionResponse_HookSpec) GetType() HookType {
 	if x != nil {
 		return x.Type
 	}
 	return HookType_PRE
 }
 
-func (x *PrepareHooksResponse_HookSpec) GetTarget() string {
+func (x *PrepareCollectionResponse_HookSpec) GetTarget() string {
 	if x != nil {
 		return x.Target
 	}
 	return ""
 }
 
-func (x *PrepareHooksResponse_HookSpec) GetConstraints() []*PrepareHooksResponse_HookSpec_OrderingConstraint {
+func (x *PrepareCollectionResponse_HookSpec) GetConstraints() []*PrepareCollectionResponse_HookSpec_OrderingConstraint {
 	if x != nil {
 		return x.Constraints
 	}
@@ -731,28 +733,28 @@ func (x *PrepareHooksResponse_HookSpec) GetConstraints() []*PrepareHooksResponse
 
 // An OrderingConstraint is a constraint about where this hook should
 // go at this hook point relative to other plugins' hooks.
-type PrepareHooksResponse_HookSpec_OrderingConstraint struct {
-	state         protoimpl.MessageState                                 `protogen:"open.v1"`
-	Order         PrepareHooksResponse_HookSpec_OrderingConstraint_Order `protobuf:"varint,1,opt,name=order,proto3,enum=datapathplugins.PrepareHooksResponse_HookSpec_OrderingConstraint_Order" json:"order,omitempty"`
-	Plugin        string                                                 `protobuf:"bytes,2,opt,name=plugin,proto3" json:"plugin,omitempty"`
+type PrepareCollectionResponse_HookSpec_OrderingConstraint struct {
+	state         protoimpl.MessageState                                      `protogen:"open.v1"`
+	Order         PrepareCollectionResponse_HookSpec_OrderingConstraint_Order `protobuf:"varint,1,opt,name=order,proto3,enum=datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_Order" json:"order,omitempty"`
+	Plugin        string                                                      `protobuf:"bytes,2,opt,name=plugin,proto3" json:"plugin,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PrepareHooksResponse_HookSpec_OrderingConstraint) Reset() {
-	*x = PrepareHooksResponse_HookSpec_OrderingConstraint{}
+func (x *PrepareCollectionResponse_HookSpec_OrderingConstraint) Reset() {
+	*x = PrepareCollectionResponse_HookSpec_OrderingConstraint{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PrepareHooksResponse_HookSpec_OrderingConstraint) String() string {
+func (x *PrepareCollectionResponse_HookSpec_OrderingConstraint) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PrepareHooksResponse_HookSpec_OrderingConstraint) ProtoMessage() {}
+func (*PrepareCollectionResponse_HookSpec_OrderingConstraint) ProtoMessage() {}
 
-func (x *PrepareHooksResponse_HookSpec_OrderingConstraint) ProtoReflect() protoreflect.Message {
+func (x *PrepareCollectionResponse_HookSpec_OrderingConstraint) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -764,19 +766,19 @@ func (x *PrepareHooksResponse_HookSpec_OrderingConstraint) ProtoReflect() protor
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PrepareHooksResponse_HookSpec_OrderingConstraint.ProtoReflect.Descriptor instead.
-func (*PrepareHooksResponse_HookSpec_OrderingConstraint) Descriptor() ([]byte, []int) {
+// Deprecated: Use PrepareCollectionResponse_HookSpec_OrderingConstraint.ProtoReflect.Descriptor instead.
+func (*PrepareCollectionResponse_HookSpec_OrderingConstraint) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{3, 0, 0}
 }
 
-func (x *PrepareHooksResponse_HookSpec_OrderingConstraint) GetOrder() PrepareHooksResponse_HookSpec_OrderingConstraint_Order {
+func (x *PrepareCollectionResponse_HookSpec_OrderingConstraint) GetOrder() PrepareCollectionResponse_HookSpec_OrderingConstraint_Order {
 	if x != nil {
 		return x.Order
 	}
-	return PrepareHooksResponse_HookSpec_OrderingConstraint_BEFORE
+	return PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE
 }
 
-func (x *PrepareHooksResponse_HookSpec_OrderingConstraint) GetPlugin() string {
+func (x *PrepareCollectionResponse_HookSpec_OrderingConstraint) GetPlugin() string {
 	if x != nil {
 		return x.Plugin
 	}
@@ -784,28 +786,28 @@ func (x *PrepareHooksResponse_HookSpec_OrderingConstraint) GetPlugin() string {
 }
 
 // Program and map IDs in the collection
-type LoadHooksRequest_Collection struct {
-	state         protoimpl.MessageState                          `protogen:"open.v1"`
-	Programs      map[string]*LoadHooksRequest_Collection_Program `protobuf:"bytes,1,rep,name=programs,proto3" json:"programs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Maps          map[string]*LoadHooksRequest_Collection_Map     `protobuf:"bytes,2,rep,name=maps,proto3" json:"maps,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+type InstrumentCollectionRequest_Collection struct {
+	state         protoimpl.MessageState                                     `protogen:"open.v1"`
+	Programs      map[string]*InstrumentCollectionRequest_Collection_Program `protobuf:"bytes,1,rep,name=programs,proto3" json:"programs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Maps          map[string]*InstrumentCollectionRequest_Collection_Map     `protobuf:"bytes,2,rep,name=maps,proto3" json:"maps,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LoadHooksRequest_Collection) Reset() {
-	*x = LoadHooksRequest_Collection{}
+func (x *InstrumentCollectionRequest_Collection) Reset() {
+	*x = InstrumentCollectionRequest_Collection{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LoadHooksRequest_Collection) String() string {
+func (x *InstrumentCollectionRequest_Collection) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LoadHooksRequest_Collection) ProtoMessage() {}
+func (*InstrumentCollectionRequest_Collection) ProtoMessage() {}
 
-func (x *LoadHooksRequest_Collection) ProtoReflect() protoreflect.Message {
+func (x *InstrumentCollectionRequest_Collection) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -817,31 +819,31 @@ func (x *LoadHooksRequest_Collection) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LoadHooksRequest_Collection.ProtoReflect.Descriptor instead.
-func (*LoadHooksRequest_Collection) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstrumentCollectionRequest_Collection.ProtoReflect.Descriptor instead.
+func (*InstrumentCollectionRequest_Collection) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{4, 0}
 }
 
-func (x *LoadHooksRequest_Collection) GetPrograms() map[string]*LoadHooksRequest_Collection_Program {
+func (x *InstrumentCollectionRequest_Collection) GetPrograms() map[string]*InstrumentCollectionRequest_Collection_Program {
 	if x != nil {
 		return x.Programs
 	}
 	return nil
 }
 
-func (x *LoadHooksRequest_Collection) GetMaps() map[string]*LoadHooksRequest_Collection_Map {
+func (x *InstrumentCollectionRequest_Collection) GetMaps() map[string]*InstrumentCollectionRequest_Collection_Map {
 	if x != nil {
 		return x.Maps
 	}
 	return nil
 }
 
-type LoadHooksRequest_Hook struct {
+type InstrumentCollectionRequest_Hook struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Type   HookType               `protobuf:"varint,1,opt,name=type,proto3,enum=datapathplugins.HookType" json:"type,omitempty"`
 	Target string                 `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 	// Contains target metadata necessary for freplace program load.
-	AttachTarget *LoadHooksRequest_Hook_AttachTarget `protobuf:"bytes,3,opt,name=attach_target,json=attachTarget,proto3" json:"attach_target,omitempty"`
+	AttachTarget *InstrumentCollectionRequest_Hook_AttachTarget `protobuf:"bytes,3,opt,name=attach_target,json=attachTarget,proto3" json:"attach_target,omitempty"`
 	// The plugin must pin the program to this pin path before responding
 	// to Cilium.
 	PinPath       string `protobuf:"bytes,4,opt,name=pin_path,json=pinPath,proto3" json:"pin_path,omitempty"`
@@ -849,20 +851,20 @@ type LoadHooksRequest_Hook struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LoadHooksRequest_Hook) Reset() {
-	*x = LoadHooksRequest_Hook{}
+func (x *InstrumentCollectionRequest_Hook) Reset() {
+	*x = InstrumentCollectionRequest_Hook{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LoadHooksRequest_Hook) String() string {
+func (x *InstrumentCollectionRequest_Hook) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LoadHooksRequest_Hook) ProtoMessage() {}
+func (*InstrumentCollectionRequest_Hook) ProtoMessage() {}
 
-func (x *LoadHooksRequest_Hook) ProtoReflect() protoreflect.Message {
+func (x *InstrumentCollectionRequest_Hook) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -874,33 +876,33 @@ func (x *LoadHooksRequest_Hook) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LoadHooksRequest_Hook.ProtoReflect.Descriptor instead.
-func (*LoadHooksRequest_Hook) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstrumentCollectionRequest_Hook.ProtoReflect.Descriptor instead.
+func (*InstrumentCollectionRequest_Hook) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{4, 1}
 }
 
-func (x *LoadHooksRequest_Hook) GetType() HookType {
+func (x *InstrumentCollectionRequest_Hook) GetType() HookType {
 	if x != nil {
 		return x.Type
 	}
 	return HookType_PRE
 }
 
-func (x *LoadHooksRequest_Hook) GetTarget() string {
+func (x *InstrumentCollectionRequest_Hook) GetTarget() string {
 	if x != nil {
 		return x.Target
 	}
 	return ""
 }
 
-func (x *LoadHooksRequest_Hook) GetAttachTarget() *LoadHooksRequest_Hook_AttachTarget {
+func (x *InstrumentCollectionRequest_Hook) GetAttachTarget() *InstrumentCollectionRequest_Hook_AttachTarget {
 	if x != nil {
 		return x.AttachTarget
 	}
 	return nil
 }
 
-func (x *LoadHooksRequest_Hook) GetPinPath() string {
+func (x *InstrumentCollectionRequest_Hook) GetPinPath() string {
 	if x != nil {
 		return x.PinPath
 	}
@@ -910,27 +912,27 @@ func (x *LoadHooksRequest_Hook) GetPinPath() string {
 // Would contain information about programs and maps in this collection
 // such as names, IDs, etc. This could be consumed by plugin programs
 // themselves, e.g., for sharing map state.
-type LoadHooksRequest_Collection_Program struct {
+type InstrumentCollectionRequest_Collection_Program struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            uint32                 `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LoadHooksRequest_Collection_Program) Reset() {
-	*x = LoadHooksRequest_Collection_Program{}
+func (x *InstrumentCollectionRequest_Collection_Program) Reset() {
+	*x = InstrumentCollectionRequest_Collection_Program{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LoadHooksRequest_Collection_Program) String() string {
+func (x *InstrumentCollectionRequest_Collection_Program) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LoadHooksRequest_Collection_Program) ProtoMessage() {}
+func (*InstrumentCollectionRequest_Collection_Program) ProtoMessage() {}
 
-func (x *LoadHooksRequest_Collection_Program) ProtoReflect() protoreflect.Message {
+func (x *InstrumentCollectionRequest_Collection_Program) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -942,39 +944,39 @@ func (x *LoadHooksRequest_Collection_Program) ProtoReflect() protoreflect.Messag
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LoadHooksRequest_Collection_Program.ProtoReflect.Descriptor instead.
-func (*LoadHooksRequest_Collection_Program) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstrumentCollectionRequest_Collection_Program.ProtoReflect.Descriptor instead.
+func (*InstrumentCollectionRequest_Collection_Program) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{4, 0, 0}
 }
 
-func (x *LoadHooksRequest_Collection_Program) GetId() uint32 {
+func (x *InstrumentCollectionRequest_Collection_Program) GetId() uint32 {
 	if x != nil {
 		return x.Id
 	}
 	return 0
 }
 
-type LoadHooksRequest_Collection_Map struct {
+type InstrumentCollectionRequest_Collection_Map struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            uint32                 `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LoadHooksRequest_Collection_Map) Reset() {
-	*x = LoadHooksRequest_Collection_Map{}
+func (x *InstrumentCollectionRequest_Collection_Map) Reset() {
+	*x = InstrumentCollectionRequest_Collection_Map{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LoadHooksRequest_Collection_Map) String() string {
+func (x *InstrumentCollectionRequest_Collection_Map) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LoadHooksRequest_Collection_Map) ProtoMessage() {}
+func (*InstrumentCollectionRequest_Collection_Map) ProtoMessage() {}
 
-func (x *LoadHooksRequest_Collection_Map) ProtoReflect() protoreflect.Message {
+func (x *InstrumentCollectionRequest_Collection_Map) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -986,19 +988,19 @@ func (x *LoadHooksRequest_Collection_Map) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LoadHooksRequest_Collection_Map.ProtoReflect.Descriptor instead.
-func (*LoadHooksRequest_Collection_Map) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstrumentCollectionRequest_Collection_Map.ProtoReflect.Descriptor instead.
+func (*InstrumentCollectionRequest_Collection_Map) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{4, 0, 1}
 }
 
-func (x *LoadHooksRequest_Collection_Map) GetId() uint32 {
+func (x *InstrumentCollectionRequest_Collection_Map) GetId() uint32 {
 	if x != nil {
 		return x.Id
 	}
 	return 0
 }
 
-type LoadHooksRequest_Hook_AttachTarget struct {
+type InstrumentCollectionRequest_Hook_AttachTarget struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ProgramId     uint32                 `protobuf:"varint,1,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
 	SubprogName   string                 `protobuf:"bytes,2,opt,name=subprog_name,json=subprogName,proto3" json:"subprog_name,omitempty"`
@@ -1006,20 +1008,20 @@ type LoadHooksRequest_Hook_AttachTarget struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LoadHooksRequest_Hook_AttachTarget) Reset() {
-	*x = LoadHooksRequest_Hook_AttachTarget{}
+func (x *InstrumentCollectionRequest_Hook_AttachTarget) Reset() {
+	*x = InstrumentCollectionRequest_Hook_AttachTarget{}
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LoadHooksRequest_Hook_AttachTarget) String() string {
+func (x *InstrumentCollectionRequest_Hook_AttachTarget) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LoadHooksRequest_Hook_AttachTarget) ProtoMessage() {}
+func (*InstrumentCollectionRequest_Hook_AttachTarget) ProtoMessage() {}
 
-func (x *LoadHooksRequest_Hook_AttachTarget) ProtoReflect() protoreflect.Message {
+func (x *InstrumentCollectionRequest_Hook_AttachTarget) ProtoReflect() protoreflect.Message {
 	mi := &file_datapathplugins_datapathplugins_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1031,19 +1033,19 @@ func (x *LoadHooksRequest_Hook_AttachTarget) ProtoReflect() protoreflect.Message
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LoadHooksRequest_Hook_AttachTarget.ProtoReflect.Descriptor instead.
-func (*LoadHooksRequest_Hook_AttachTarget) Descriptor() ([]byte, []int) {
+// Deprecated: Use InstrumentCollectionRequest_Hook_AttachTarget.ProtoReflect.Descriptor instead.
+func (*InstrumentCollectionRequest_Hook_AttachTarget) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{4, 1, 0}
 }
 
-func (x *LoadHooksRequest_Hook_AttachTarget) GetProgramId() uint32 {
+func (x *InstrumentCollectionRequest_Hook_AttachTarget) GetProgramId() uint32 {
 	if x != nil {
 		return x.ProgramId
 	}
 	return 0
 }
 
-func (x *LoadHooksRequest_Hook_AttachTarget) GetSubprogName() string {
+func (x *InstrumentCollectionRequest_Hook_AttachTarget) GetSubprogName() string {
 	if x != nil {
 		return x.SubprogName
 	}
@@ -1061,76 +1063,76 @@ const file_datapathplugins_datapathplugins_proto_rawDesc = "" +
 	"\x02TC\x12Q\n" +
 	"\tep_config\x18\x01 \x01(\v24.datapathplugins.AttachmentContext.TC.EndpointConfigR\bepConfig\x1a\x10\n" +
 	"\x0eEndpointConfigB\t\n" +
-	"\acontext\"\xde\x05\n" +
-	"\x13PrepareHooksRequest\x12S\n" +
+	"\acontext\"\xfd\x05\n" +
+	"\x18PrepareCollectionRequest\x12X\n" +
 	"\n" +
-	"collection\x18\x01 \x01(\v23.datapathplugins.PrepareHooksRequest.CollectionSpecR\n" +
+	"collection\x18\x01 \x01(\v28.datapathplugins.PrepareCollectionRequest.CollectionSpecR\n" +
 	"collection\x12L\n" +
 	"\x11local_node_config\x18\x02 \x01(\v2 .datapathplugins.LocalNodeConfigR\x0flocalNodeConfig\x12Q\n" +
-	"\x12attachment_context\x18\x03 \x01(\v2\".datapathplugins.AttachmentContextR\x11attachmentContext\x1a\xd0\x03\n" +
-	"\x0eCollectionSpec\x12]\n" +
-	"\bprograms\x18\x01 \x03(\v2A.datapathplugins.PrepareHooksRequest.CollectionSpec.ProgramsEntryR\bprograms\x12Q\n" +
-	"\x04maps\x18\x02 \x03(\v2=.datapathplugins.PrepareHooksRequest.CollectionSpec.MapsEntryR\x04maps\x1a\r\n" +
+	"\x12attachment_context\x18\x03 \x01(\v2\".datapathplugins.AttachmentContextR\x11attachmentContext\x1a\xe5\x03\n" +
+	"\x0eCollectionSpec\x12b\n" +
+	"\bprograms\x18\x01 \x03(\v2F.datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramsEntryR\bprograms\x12V\n" +
+	"\x04maps\x18\x02 \x03(\v2B.datapathplugins.PrepareCollectionRequest.CollectionSpec.MapsEntryR\x04maps\x1a\r\n" +
 	"\vProgramSpec\x1a\t\n" +
-	"\aMapSpec\x1a|\n" +
+	"\aMapSpec\x1a\x81\x01\n" +
 	"\rProgramsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12U\n" +
-	"\x05value\x18\x02 \x01(\v2?.datapathplugins.PrepareHooksRequest.CollectionSpec.ProgramSpecR\x05value:\x028\x01\x1at\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12Z\n" +
+	"\x05value\x18\x02 \x01(\v2D.datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramSpecR\x05value:\x028\x01\x1ay\n" +
 	"\tMapsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12Q\n" +
-	"\x05value\x18\x02 \x01(\v2;.datapathplugins.PrepareHooksRequest.CollectionSpec.MapSpecR\x05value:\x028\x01\"\xdb\x03\n" +
-	"\x14PrepareHooksResponse\x12D\n" +
-	"\x05hooks\x18\x01 \x03(\v2..datapathplugins.PrepareHooksResponse.HookSpecR\x05hooks\x12\x16\n" +
-	"\x06cookie\x18\x02 \x01(\tR\x06cookie\x1a\xe4\x02\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12V\n" +
+	"\x05value\x18\x02 \x01(\v2@.datapathplugins.PrepareCollectionRequest.CollectionSpec.MapSpecR\x05value:\x028\x01\"\xef\x03\n" +
+	"\x19PrepareCollectionResponse\x12I\n" +
+	"\x05hooks\x18\x01 \x03(\v23.datapathplugins.PrepareCollectionResponse.HookSpecR\x05hooks\x12\x16\n" +
+	"\x06cookie\x18\x02 \x01(\tR\x06cookie\x1a\xee\x02\n" +
 	"\bHookSpec\x12-\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x19.datapathplugins.HookTypeR\x04type\x12\x16\n" +
-	"\x06target\x18\x02 \x01(\tR\x06target\x12c\n" +
-	"\vconstraints\x18\x03 \x03(\v2A.datapathplugins.PrepareHooksResponse.HookSpec.OrderingConstraintR\vconstraints\x1a\xab\x01\n" +
-	"\x12OrderingConstraint\x12]\n" +
-	"\x05order\x18\x01 \x01(\x0e2G.datapathplugins.PrepareHooksResponse.HookSpec.OrderingConstraint.OrderR\x05order\x12\x16\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\x12h\n" +
+	"\vconstraints\x18\x03 \x03(\v2F.datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraintR\vconstraints\x1a\xb0\x01\n" +
+	"\x12OrderingConstraint\x12b\n" +
+	"\x05order\x18\x01 \x01(\x0e2L.datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraint.OrderR\x05order\x12\x16\n" +
 	"\x06plugin\x18\x02 \x01(\tR\x06plugin\"\x1e\n" +
 	"\x05Order\x12\n" +
 	"\n" +
 	"\x06BEFORE\x10\x00\x12\t\n" +
-	"\x05AFTER\x10\x01\"\xb1\b\n" +
-	"\x10LoadHooksRequest\x12L\n" +
+	"\x05AFTER\x10\x01\"\x89\t\n" +
+	"\x1bInstrumentCollectionRequest\x12W\n" +
 	"\n" +
-	"collection\x18\x01 \x01(\v2,.datapathplugins.LoadHooksRequest.CollectionR\n" +
+	"collection\x18\x01 \x01(\v27.datapathplugins.InstrumentCollectionRequest.CollectionR\n" +
 	"collection\x12L\n" +
 	"\x11local_node_config\x18\x02 \x01(\v2 .datapathplugins.LocalNodeConfigR\x0flocalNodeConfig\x12Q\n" +
-	"\x12attachment_context\x18\x03 \x01(\v2\".datapathplugins.AttachmentContextR\x11attachmentContext\x12<\n" +
-	"\x05hooks\x18\x04 \x03(\v2&.datapathplugins.LoadHooksRequest.HookR\x05hooks\x12\x16\n" +
-	"\x06cookie\x18\x05 \x01(\tR\x06cookie\x1a\xc0\x03\n" +
+	"\x12attachment_context\x18\x03 \x01(\v2\".datapathplugins.AttachmentContextR\x11attachmentContext\x12G\n" +
+	"\x05hooks\x18\x04 \x03(\v21.datapathplugins.InstrumentCollectionRequest.HookR\x05hooks\x12\x16\n" +
+	"\x06cookie\x18\x05 \x01(\tR\x06cookie\x1a\xec\x03\n" +
 	"\n" +
-	"Collection\x12V\n" +
-	"\bprograms\x18\x01 \x03(\v2:.datapathplugins.LoadHooksRequest.Collection.ProgramsEntryR\bprograms\x12J\n" +
-	"\x04maps\x18\x02 \x03(\v26.datapathplugins.LoadHooksRequest.Collection.MapsEntryR\x04maps\x1a\x19\n" +
+	"Collection\x12a\n" +
+	"\bprograms\x18\x01 \x03(\v2E.datapathplugins.InstrumentCollectionRequest.Collection.ProgramsEntryR\bprograms\x12U\n" +
+	"\x04maps\x18\x02 \x03(\v2A.datapathplugins.InstrumentCollectionRequest.Collection.MapsEntryR\x04maps\x1a\x19\n" +
 	"\aProgram\x12\x0e\n" +
 	"\x02id\x18\x02 \x01(\rR\x02id\x1a\x15\n" +
 	"\x03Map\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\rR\x02id\x1aq\n" +
+	"\x02id\x18\x02 \x01(\rR\x02id\x1a|\n" +
 	"\rProgramsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12J\n" +
-	"\x05value\x18\x02 \x01(\v24.datapathplugins.LoadHooksRequest.Collection.ProgramR\x05value:\x028\x01\x1ai\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12U\n" +
+	"\x05value\x18\x02 \x01(\v2?.datapathplugins.InstrumentCollectionRequest.Collection.ProgramR\x05value:\x028\x01\x1at\n" +
 	"\tMapsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12F\n" +
-	"\x05value\x18\x02 \x01(\v20.datapathplugins.LoadHooksRequest.Collection.MapR\x05value:\x028\x01\x1a\x94\x02\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12Q\n" +
+	"\x05value\x18\x02 \x01(\v2;.datapathplugins.InstrumentCollectionRequest.Collection.MapR\x05value:\x028\x01\x1a\x9f\x02\n" +
 	"\x04Hook\x12-\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x19.datapathplugins.HookTypeR\x04type\x12\x16\n" +
-	"\x06target\x18\x02 \x01(\tR\x06target\x12X\n" +
-	"\rattach_target\x18\x03 \x01(\v23.datapathplugins.LoadHooksRequest.Hook.AttachTargetR\fattachTarget\x12\x19\n" +
+	"\x06target\x18\x02 \x01(\tR\x06target\x12c\n" +
+	"\rattach_target\x18\x03 \x01(\v2>.datapathplugins.InstrumentCollectionRequest.Hook.AttachTargetR\fattachTarget\x12\x19\n" +
 	"\bpin_path\x18\x04 \x01(\tR\apinPath\x1aP\n" +
 	"\fAttachTarget\x12\x1d\n" +
 	"\n" +
 	"program_id\x18\x01 \x01(\rR\tprogramId\x12!\n" +
-	"\fsubprog_name\x18\x02 \x01(\tR\vsubprogName\"\x13\n" +
-	"\x11LoadHooksResponse*\x1d\n" +
+	"\fsubprog_name\x18\x02 \x01(\tR\vsubprogName\"\x1e\n" +
+	"\x1cInstrumentCollectionResponse*\x1d\n" +
 	"\bHookType\x12\a\n" +
 	"\x03PRE\x10\x00\x12\b\n" +
-	"\x04POST\x10\x012\xc5\x01\n" +
-	"\x0eDatapathPlugin\x12]\n" +
-	"\fPrepareHooks\x12$.datapathplugins.PrepareHooksRequest\x1a%.datapathplugins.PrepareHooksResponse\"\x00\x12T\n" +
-	"\tLoadHooks\x12!.datapathplugins.LoadHooksRequest\x1a\".datapathplugins.LoadHooksResponse\"\x00B1Z/github.com/cilium/cilium/api/v1/datapathpluginsb\x06proto3"
+	"\x04POST\x10\x012\xf5\x01\n" +
+	"\x0eDatapathPlugin\x12l\n" +
+	"\x11PrepareCollection\x12).datapathplugins.PrepareCollectionRequest\x1a*.datapathplugins.PrepareCollectionResponse\"\x00\x12u\n" +
+	"\x14InstrumentCollection\x12,.datapathplugins.InstrumentCollectionRequest\x1a-.datapathplugins.InstrumentCollectionResponse\"\x00B1Z/github.com/cilium/cilium/api/v1/datapathpluginsb\x06proto3"
 
 var (
 	file_datapathplugins_datapathplugins_proto_rawDescOnce sync.Once
@@ -1148,58 +1150,58 @@ var file_datapathplugins_datapathplugins_proto_enumTypes = make([]protoimpl.Enum
 var file_datapathplugins_datapathplugins_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_datapathplugins_datapathplugins_proto_goTypes = []any{
 	(HookType)(0), // 0: datapathplugins.HookType
-	(PrepareHooksResponse_HookSpec_OrderingConstraint_Order)(0), // 1: datapathplugins.PrepareHooksResponse.HookSpec.OrderingConstraint.Order
-	(*LocalNodeConfig)(nil),                                // 2: datapathplugins.LocalNodeConfig
-	(*AttachmentContext)(nil),                              // 3: datapathplugins.AttachmentContext
-	(*PrepareHooksRequest)(nil),                            // 4: datapathplugins.PrepareHooksRequest
-	(*PrepareHooksResponse)(nil),                           // 5: datapathplugins.PrepareHooksResponse
-	(*LoadHooksRequest)(nil),                               // 6: datapathplugins.LoadHooksRequest
-	(*LoadHooksResponse)(nil),                              // 7: datapathplugins.LoadHooksResponse
-	(*AttachmentContext_TC)(nil),                           // 8: datapathplugins.AttachmentContext.TC
-	(*AttachmentContext_TC_EndpointConfig)(nil),            // 9: datapathplugins.AttachmentContext.TC.EndpointConfig
-	(*PrepareHooksRequest_CollectionSpec)(nil),             // 10: datapathplugins.PrepareHooksRequest.CollectionSpec
-	(*PrepareHooksRequest_CollectionSpec_ProgramSpec)(nil), // 11: datapathplugins.PrepareHooksRequest.CollectionSpec.ProgramSpec
-	(*PrepareHooksRequest_CollectionSpec_MapSpec)(nil),     // 12: datapathplugins.PrepareHooksRequest.CollectionSpec.MapSpec
-	nil,                                   // 13: datapathplugins.PrepareHooksRequest.CollectionSpec.ProgramsEntry
-	nil,                                   // 14: datapathplugins.PrepareHooksRequest.CollectionSpec.MapsEntry
-	(*PrepareHooksResponse_HookSpec)(nil), // 15: datapathplugins.PrepareHooksResponse.HookSpec
-	(*PrepareHooksResponse_HookSpec_OrderingConstraint)(nil), // 16: datapathplugins.PrepareHooksResponse.HookSpec.OrderingConstraint
-	(*LoadHooksRequest_Collection)(nil),                      // 17: datapathplugins.LoadHooksRequest.Collection
-	(*LoadHooksRequest_Hook)(nil),                            // 18: datapathplugins.LoadHooksRequest.Hook
-	(*LoadHooksRequest_Collection_Program)(nil),              // 19: datapathplugins.LoadHooksRequest.Collection.Program
-	(*LoadHooksRequest_Collection_Map)(nil),                  // 20: datapathplugins.LoadHooksRequest.Collection.Map
-	nil,                                                      // 21: datapathplugins.LoadHooksRequest.Collection.ProgramsEntry
-	nil,                                                      // 22: datapathplugins.LoadHooksRequest.Collection.MapsEntry
-	(*LoadHooksRequest_Hook_AttachTarget)(nil),               // 23: datapathplugins.LoadHooksRequest.Hook.AttachTarget
+	(PrepareCollectionResponse_HookSpec_OrderingConstraint_Order)(0), // 1: datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraint.Order
+	(*LocalNodeConfig)(nil),                                     // 2: datapathplugins.LocalNodeConfig
+	(*AttachmentContext)(nil),                                   // 3: datapathplugins.AttachmentContext
+	(*PrepareCollectionRequest)(nil),                            // 4: datapathplugins.PrepareCollectionRequest
+	(*PrepareCollectionResponse)(nil),                           // 5: datapathplugins.PrepareCollectionResponse
+	(*InstrumentCollectionRequest)(nil),                         // 6: datapathplugins.InstrumentCollectionRequest
+	(*InstrumentCollectionResponse)(nil),                        // 7: datapathplugins.InstrumentCollectionResponse
+	(*AttachmentContext_TC)(nil),                                // 8: datapathplugins.AttachmentContext.TC
+	(*AttachmentContext_TC_EndpointConfig)(nil),                 // 9: datapathplugins.AttachmentContext.TC.EndpointConfig
+	(*PrepareCollectionRequest_CollectionSpec)(nil),             // 10: datapathplugins.PrepareCollectionRequest.CollectionSpec
+	(*PrepareCollectionRequest_CollectionSpec_ProgramSpec)(nil), // 11: datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramSpec
+	(*PrepareCollectionRequest_CollectionSpec_MapSpec)(nil),     // 12: datapathplugins.PrepareCollectionRequest.CollectionSpec.MapSpec
+	nil, // 13: datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramsEntry
+	nil, // 14: datapathplugins.PrepareCollectionRequest.CollectionSpec.MapsEntry
+	(*PrepareCollectionResponse_HookSpec)(nil),                    // 15: datapathplugins.PrepareCollectionResponse.HookSpec
+	(*PrepareCollectionResponse_HookSpec_OrderingConstraint)(nil), // 16: datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraint
+	(*InstrumentCollectionRequest_Collection)(nil),                // 17: datapathplugins.InstrumentCollectionRequest.Collection
+	(*InstrumentCollectionRequest_Hook)(nil),                      // 18: datapathplugins.InstrumentCollectionRequest.Hook
+	(*InstrumentCollectionRequest_Collection_Program)(nil),        // 19: datapathplugins.InstrumentCollectionRequest.Collection.Program
+	(*InstrumentCollectionRequest_Collection_Map)(nil),            // 20: datapathplugins.InstrumentCollectionRequest.Collection.Map
+	nil, // 21: datapathplugins.InstrumentCollectionRequest.Collection.ProgramsEntry
+	nil, // 22: datapathplugins.InstrumentCollectionRequest.Collection.MapsEntry
+	(*InstrumentCollectionRequest_Hook_AttachTarget)(nil), // 23: datapathplugins.InstrumentCollectionRequest.Hook.AttachTarget
 }
 var file_datapathplugins_datapathplugins_proto_depIdxs = []int32{
 	8,  // 0: datapathplugins.AttachmentContext.tc:type_name -> datapathplugins.AttachmentContext.TC
-	10, // 1: datapathplugins.PrepareHooksRequest.collection:type_name -> datapathplugins.PrepareHooksRequest.CollectionSpec
-	2,  // 2: datapathplugins.PrepareHooksRequest.local_node_config:type_name -> datapathplugins.LocalNodeConfig
-	3,  // 3: datapathplugins.PrepareHooksRequest.attachment_context:type_name -> datapathplugins.AttachmentContext
-	15, // 4: datapathplugins.PrepareHooksResponse.hooks:type_name -> datapathplugins.PrepareHooksResponse.HookSpec
-	17, // 5: datapathplugins.LoadHooksRequest.collection:type_name -> datapathplugins.LoadHooksRequest.Collection
-	2,  // 6: datapathplugins.LoadHooksRequest.local_node_config:type_name -> datapathplugins.LocalNodeConfig
-	3,  // 7: datapathplugins.LoadHooksRequest.attachment_context:type_name -> datapathplugins.AttachmentContext
-	18, // 8: datapathplugins.LoadHooksRequest.hooks:type_name -> datapathplugins.LoadHooksRequest.Hook
+	10, // 1: datapathplugins.PrepareCollectionRequest.collection:type_name -> datapathplugins.PrepareCollectionRequest.CollectionSpec
+	2,  // 2: datapathplugins.PrepareCollectionRequest.local_node_config:type_name -> datapathplugins.LocalNodeConfig
+	3,  // 3: datapathplugins.PrepareCollectionRequest.attachment_context:type_name -> datapathplugins.AttachmentContext
+	15, // 4: datapathplugins.PrepareCollectionResponse.hooks:type_name -> datapathplugins.PrepareCollectionResponse.HookSpec
+	17, // 5: datapathplugins.InstrumentCollectionRequest.collection:type_name -> datapathplugins.InstrumentCollectionRequest.Collection
+	2,  // 6: datapathplugins.InstrumentCollectionRequest.local_node_config:type_name -> datapathplugins.LocalNodeConfig
+	3,  // 7: datapathplugins.InstrumentCollectionRequest.attachment_context:type_name -> datapathplugins.AttachmentContext
+	18, // 8: datapathplugins.InstrumentCollectionRequest.hooks:type_name -> datapathplugins.InstrumentCollectionRequest.Hook
 	9,  // 9: datapathplugins.AttachmentContext.TC.ep_config:type_name -> datapathplugins.AttachmentContext.TC.EndpointConfig
-	13, // 10: datapathplugins.PrepareHooksRequest.CollectionSpec.programs:type_name -> datapathplugins.PrepareHooksRequest.CollectionSpec.ProgramsEntry
-	14, // 11: datapathplugins.PrepareHooksRequest.CollectionSpec.maps:type_name -> datapathplugins.PrepareHooksRequest.CollectionSpec.MapsEntry
-	11, // 12: datapathplugins.PrepareHooksRequest.CollectionSpec.ProgramsEntry.value:type_name -> datapathplugins.PrepareHooksRequest.CollectionSpec.ProgramSpec
-	12, // 13: datapathplugins.PrepareHooksRequest.CollectionSpec.MapsEntry.value:type_name -> datapathplugins.PrepareHooksRequest.CollectionSpec.MapSpec
-	0,  // 14: datapathplugins.PrepareHooksResponse.HookSpec.type:type_name -> datapathplugins.HookType
-	16, // 15: datapathplugins.PrepareHooksResponse.HookSpec.constraints:type_name -> datapathplugins.PrepareHooksResponse.HookSpec.OrderingConstraint
-	1,  // 16: datapathplugins.PrepareHooksResponse.HookSpec.OrderingConstraint.order:type_name -> datapathplugins.PrepareHooksResponse.HookSpec.OrderingConstraint.Order
-	21, // 17: datapathplugins.LoadHooksRequest.Collection.programs:type_name -> datapathplugins.LoadHooksRequest.Collection.ProgramsEntry
-	22, // 18: datapathplugins.LoadHooksRequest.Collection.maps:type_name -> datapathplugins.LoadHooksRequest.Collection.MapsEntry
-	0,  // 19: datapathplugins.LoadHooksRequest.Hook.type:type_name -> datapathplugins.HookType
-	23, // 20: datapathplugins.LoadHooksRequest.Hook.attach_target:type_name -> datapathplugins.LoadHooksRequest.Hook.AttachTarget
-	19, // 21: datapathplugins.LoadHooksRequest.Collection.ProgramsEntry.value:type_name -> datapathplugins.LoadHooksRequest.Collection.Program
-	20, // 22: datapathplugins.LoadHooksRequest.Collection.MapsEntry.value:type_name -> datapathplugins.LoadHooksRequest.Collection.Map
-	4,  // 23: datapathplugins.DatapathPlugin.PrepareHooks:input_type -> datapathplugins.PrepareHooksRequest
-	6,  // 24: datapathplugins.DatapathPlugin.LoadHooks:input_type -> datapathplugins.LoadHooksRequest
-	5,  // 25: datapathplugins.DatapathPlugin.PrepareHooks:output_type -> datapathplugins.PrepareHooksResponse
-	7,  // 26: datapathplugins.DatapathPlugin.LoadHooks:output_type -> datapathplugins.LoadHooksResponse
+	13, // 10: datapathplugins.PrepareCollectionRequest.CollectionSpec.programs:type_name -> datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramsEntry
+	14, // 11: datapathplugins.PrepareCollectionRequest.CollectionSpec.maps:type_name -> datapathplugins.PrepareCollectionRequest.CollectionSpec.MapsEntry
+	11, // 12: datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramsEntry.value:type_name -> datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramSpec
+	12, // 13: datapathplugins.PrepareCollectionRequest.CollectionSpec.MapsEntry.value:type_name -> datapathplugins.PrepareCollectionRequest.CollectionSpec.MapSpec
+	0,  // 14: datapathplugins.PrepareCollectionResponse.HookSpec.type:type_name -> datapathplugins.HookType
+	16, // 15: datapathplugins.PrepareCollectionResponse.HookSpec.constraints:type_name -> datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraint
+	1,  // 16: datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraint.order:type_name -> datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraint.Order
+	21, // 17: datapathplugins.InstrumentCollectionRequest.Collection.programs:type_name -> datapathplugins.InstrumentCollectionRequest.Collection.ProgramsEntry
+	22, // 18: datapathplugins.InstrumentCollectionRequest.Collection.maps:type_name -> datapathplugins.InstrumentCollectionRequest.Collection.MapsEntry
+	0,  // 19: datapathplugins.InstrumentCollectionRequest.Hook.type:type_name -> datapathplugins.HookType
+	23, // 20: datapathplugins.InstrumentCollectionRequest.Hook.attach_target:type_name -> datapathplugins.InstrumentCollectionRequest.Hook.AttachTarget
+	19, // 21: datapathplugins.InstrumentCollectionRequest.Collection.ProgramsEntry.value:type_name -> datapathplugins.InstrumentCollectionRequest.Collection.Program
+	20, // 22: datapathplugins.InstrumentCollectionRequest.Collection.MapsEntry.value:type_name -> datapathplugins.InstrumentCollectionRequest.Collection.Map
+	4,  // 23: datapathplugins.DatapathPlugin.PrepareCollection:input_type -> datapathplugins.PrepareCollectionRequest
+	6,  // 24: datapathplugins.DatapathPlugin.InstrumentCollection:input_type -> datapathplugins.InstrumentCollectionRequest
+	5,  // 25: datapathplugins.DatapathPlugin.PrepareCollection:output_type -> datapathplugins.PrepareCollectionResponse
+	7,  // 26: datapathplugins.DatapathPlugin.InstrumentCollection:output_type -> datapathplugins.InstrumentCollectionResponse
 	25, // [25:27] is the sub-list for method output_type
 	23, // [23:25] is the sub-list for method input_type
 	23, // [23:23] is the sub-list for extension type_name

@@ -22,16 +22,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DatapathPlugin_PrepareHooks_FullMethodName = "/datapathplugins.DatapathPlugin/PrepareHooks"
-	DatapathPlugin_LoadHooks_FullMethodName    = "/datapathplugins.DatapathPlugin/LoadHooks"
+	DatapathPlugin_PrepareCollection_FullMethodName    = "/datapathplugins.DatapathPlugin/PrepareCollection"
+	DatapathPlugin_InstrumentCollection_FullMethodName = "/datapathplugins.DatapathPlugin/InstrumentCollection"
 )
 
 // DatapathPluginClient is the client API for DatapathPlugin service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DatapathPluginClient interface {
-	PrepareHooks(ctx context.Context, in *PrepareHooksRequest, opts ...grpc.CallOption) (*PrepareHooksResponse, error)
-	LoadHooks(ctx context.Context, in *LoadHooksRequest, opts ...grpc.CallOption) (*LoadHooksResponse, error)
+	PrepareCollection(ctx context.Context, in *PrepareCollectionRequest, opts ...grpc.CallOption) (*PrepareCollectionResponse, error)
+	InstrumentCollection(ctx context.Context, in *InstrumentCollectionRequest, opts ...grpc.CallOption) (*InstrumentCollectionResponse, error)
 }
 
 type datapathPluginClient struct {
@@ -42,20 +42,20 @@ func NewDatapathPluginClient(cc grpc.ClientConnInterface) DatapathPluginClient {
 	return &datapathPluginClient{cc}
 }
 
-func (c *datapathPluginClient) PrepareHooks(ctx context.Context, in *PrepareHooksRequest, opts ...grpc.CallOption) (*PrepareHooksResponse, error) {
+func (c *datapathPluginClient) PrepareCollection(ctx context.Context, in *PrepareCollectionRequest, opts ...grpc.CallOption) (*PrepareCollectionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(PrepareHooksResponse)
-	err := c.cc.Invoke(ctx, DatapathPlugin_PrepareHooks_FullMethodName, in, out, cOpts...)
+	out := new(PrepareCollectionResponse)
+	err := c.cc.Invoke(ctx, DatapathPlugin_PrepareCollection_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *datapathPluginClient) LoadHooks(ctx context.Context, in *LoadHooksRequest, opts ...grpc.CallOption) (*LoadHooksResponse, error) {
+func (c *datapathPluginClient) InstrumentCollection(ctx context.Context, in *InstrumentCollectionRequest, opts ...grpc.CallOption) (*InstrumentCollectionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(LoadHooksResponse)
-	err := c.cc.Invoke(ctx, DatapathPlugin_LoadHooks_FullMethodName, in, out, cOpts...)
+	out := new(InstrumentCollectionResponse)
+	err := c.cc.Invoke(ctx, DatapathPlugin_InstrumentCollection_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,8 +66,8 @@ func (c *datapathPluginClient) LoadHooks(ctx context.Context, in *LoadHooksReque
 // All implementations should embed UnimplementedDatapathPluginServer
 // for forward compatibility.
 type DatapathPluginServer interface {
-	PrepareHooks(context.Context, *PrepareHooksRequest) (*PrepareHooksResponse, error)
-	LoadHooks(context.Context, *LoadHooksRequest) (*LoadHooksResponse, error)
+	PrepareCollection(context.Context, *PrepareCollectionRequest) (*PrepareCollectionResponse, error)
+	InstrumentCollection(context.Context, *InstrumentCollectionRequest) (*InstrumentCollectionResponse, error)
 }
 
 // UnimplementedDatapathPluginServer should be embedded to have
@@ -77,11 +77,11 @@ type DatapathPluginServer interface {
 // pointer dereference when methods are called.
 type UnimplementedDatapathPluginServer struct{}
 
-func (UnimplementedDatapathPluginServer) PrepareHooks(context.Context, *PrepareHooksRequest) (*PrepareHooksResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method PrepareHooks not implemented")
+func (UnimplementedDatapathPluginServer) PrepareCollection(context.Context, *PrepareCollectionRequest) (*PrepareCollectionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PrepareCollection not implemented")
 }
-func (UnimplementedDatapathPluginServer) LoadHooks(context.Context, *LoadHooksRequest) (*LoadHooksResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method LoadHooks not implemented")
+func (UnimplementedDatapathPluginServer) InstrumentCollection(context.Context, *InstrumentCollectionRequest) (*InstrumentCollectionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InstrumentCollection not implemented")
 }
 func (UnimplementedDatapathPluginServer) testEmbeddedByValue() {}
 
@@ -103,38 +103,38 @@ func RegisterDatapathPluginServer(s grpc.ServiceRegistrar, srv DatapathPluginSer
 	s.RegisterService(&DatapathPlugin_ServiceDesc, srv)
 }
 
-func _DatapathPlugin_PrepareHooks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PrepareHooksRequest)
+func _DatapathPlugin_PrepareCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrepareCollectionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DatapathPluginServer).PrepareHooks(ctx, in)
+		return srv.(DatapathPluginServer).PrepareCollection(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DatapathPlugin_PrepareHooks_FullMethodName,
+		FullMethod: DatapathPlugin_PrepareCollection_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DatapathPluginServer).PrepareHooks(ctx, req.(*PrepareHooksRequest))
+		return srv.(DatapathPluginServer).PrepareCollection(ctx, req.(*PrepareCollectionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DatapathPlugin_LoadHooks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LoadHooksRequest)
+func _DatapathPlugin_InstrumentCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InstrumentCollectionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DatapathPluginServer).LoadHooks(ctx, in)
+		return srv.(DatapathPluginServer).InstrumentCollection(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DatapathPlugin_LoadHooks_FullMethodName,
+		FullMethod: DatapathPlugin_InstrumentCollection_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DatapathPluginServer).LoadHooks(ctx, req.(*LoadHooksRequest))
+		return srv.(DatapathPluginServer).InstrumentCollection(ctx, req.(*InstrumentCollectionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -147,12 +147,12 @@ var DatapathPlugin_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DatapathPluginServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "PrepareHooks",
-			Handler:    _DatapathPlugin_PrepareHooks_Handler,
+			MethodName: "PrepareCollection",
+			Handler:    _DatapathPlugin_PrepareCollection_Handler,
 		},
 		{
-			MethodName: "LoadHooks",
-			Handler:    _DatapathPlugin_LoadHooks_Handler,
+			MethodName: "InstrumentCollection",
+			Handler:    _DatapathPlugin_InstrumentCollection_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

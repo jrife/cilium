@@ -7,28 +7,28 @@
     - [AttachmentContext](#datapathplugins-AttachmentContext)
     - [AttachmentContext.TC](#datapathplugins-AttachmentContext-TC)
     - [AttachmentContext.TC.EndpointConfig](#datapathplugins-AttachmentContext-TC-EndpointConfig)
-    - [LoadHooksRequest](#datapathplugins-LoadHooksRequest)
-    - [LoadHooksRequest.Collection](#datapathplugins-LoadHooksRequest-Collection)
-    - [LoadHooksRequest.Collection.Map](#datapathplugins-LoadHooksRequest-Collection-Map)
-    - [LoadHooksRequest.Collection.MapsEntry](#datapathplugins-LoadHooksRequest-Collection-MapsEntry)
-    - [LoadHooksRequest.Collection.Program](#datapathplugins-LoadHooksRequest-Collection-Program)
-    - [LoadHooksRequest.Collection.ProgramsEntry](#datapathplugins-LoadHooksRequest-Collection-ProgramsEntry)
-    - [LoadHooksRequest.Hook](#datapathplugins-LoadHooksRequest-Hook)
-    - [LoadHooksRequest.Hook.AttachTarget](#datapathplugins-LoadHooksRequest-Hook-AttachTarget)
-    - [LoadHooksResponse](#datapathplugins-LoadHooksResponse)
+    - [InstrumentCollectionRequest](#datapathplugins-InstrumentCollectionRequest)
+    - [InstrumentCollectionRequest.Collection](#datapathplugins-InstrumentCollectionRequest-Collection)
+    - [InstrumentCollectionRequest.Collection.Map](#datapathplugins-InstrumentCollectionRequest-Collection-Map)
+    - [InstrumentCollectionRequest.Collection.MapsEntry](#datapathplugins-InstrumentCollectionRequest-Collection-MapsEntry)
+    - [InstrumentCollectionRequest.Collection.Program](#datapathplugins-InstrumentCollectionRequest-Collection-Program)
+    - [InstrumentCollectionRequest.Collection.ProgramsEntry](#datapathplugins-InstrumentCollectionRequest-Collection-ProgramsEntry)
+    - [InstrumentCollectionRequest.Hook](#datapathplugins-InstrumentCollectionRequest-Hook)
+    - [InstrumentCollectionRequest.Hook.AttachTarget](#datapathplugins-InstrumentCollectionRequest-Hook-AttachTarget)
+    - [InstrumentCollectionResponse](#datapathplugins-InstrumentCollectionResponse)
     - [LocalNodeConfig](#datapathplugins-LocalNodeConfig)
-    - [PrepareHooksRequest](#datapathplugins-PrepareHooksRequest)
-    - [PrepareHooksRequest.CollectionSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec)
-    - [PrepareHooksRequest.CollectionSpec.MapSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec-MapSpec)
-    - [PrepareHooksRequest.CollectionSpec.MapsEntry](#datapathplugins-PrepareHooksRequest-CollectionSpec-MapsEntry)
-    - [PrepareHooksRequest.CollectionSpec.ProgramSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramSpec)
-    - [PrepareHooksRequest.CollectionSpec.ProgramsEntry](#datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramsEntry)
-    - [PrepareHooksResponse](#datapathplugins-PrepareHooksResponse)
-    - [PrepareHooksResponse.HookSpec](#datapathplugins-PrepareHooksResponse-HookSpec)
-    - [PrepareHooksResponse.HookSpec.OrderingConstraint](#datapathplugins-PrepareHooksResponse-HookSpec-OrderingConstraint)
+    - [PrepareCollectionRequest](#datapathplugins-PrepareCollectionRequest)
+    - [PrepareCollectionRequest.CollectionSpec](#datapathplugins-PrepareCollectionRequest-CollectionSpec)
+    - [PrepareCollectionRequest.CollectionSpec.MapSpec](#datapathplugins-PrepareCollectionRequest-CollectionSpec-MapSpec)
+    - [PrepareCollectionRequest.CollectionSpec.MapsEntry](#datapathplugins-PrepareCollectionRequest-CollectionSpec-MapsEntry)
+    - [PrepareCollectionRequest.CollectionSpec.ProgramSpec](#datapathplugins-PrepareCollectionRequest-CollectionSpec-ProgramSpec)
+    - [PrepareCollectionRequest.CollectionSpec.ProgramsEntry](#datapathplugins-PrepareCollectionRequest-CollectionSpec-ProgramsEntry)
+    - [PrepareCollectionResponse](#datapathplugins-PrepareCollectionResponse)
+    - [PrepareCollectionResponse.HookSpec](#datapathplugins-PrepareCollectionResponse-HookSpec)
+    - [PrepareCollectionResponse.HookSpec.OrderingConstraint](#datapathplugins-PrepareCollectionResponse-HookSpec-OrderingConstraint)
   
     - [HookType](#datapathplugins-HookType)
-    - [PrepareHooksResponse.HookSpec.OrderingConstraint.Order](#datapathplugins-PrepareHooksResponse-HookSpec-OrderingConstraint-Order)
+    - [PrepareCollectionResponse.HookSpec.OrderingConstraint.Order](#datapathplugins-PrepareCollectionResponse-HookSpec-OrderingConstraint-Order)
   
     - [DatapathPlugin](#datapathplugins-DatapathPlugin)
   
@@ -85,9 +85,9 @@ Contains endpoint-specific config (IP, MAC, etc.)
 
 
 
-<a name="datapathplugins-LoadHooksRequest"></a>
+<a name="datapathplugins-InstrumentCollectionRequest"></a>
 
-### LoadHooksRequest
+### InstrumentCollectionRequest
 Phase 2: Cilium has constructed and loaded the collection along with any
 dispatcher programs that are meant to replace existing entrypoints in the
 collection. Cilium sends a round of requests to any plugins that wanted to
@@ -96,10 +96,10 @@ inject hooks.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [LoadHooksRequest.Collection](#datapathplugins-LoadHooksRequest-Collection) |  |  |
+| collection | [InstrumentCollectionRequest.Collection](#datapathplugins-InstrumentCollectionRequest-Collection) |  |  |
 | local_node_config | [LocalNodeConfig](#datapathplugins-LocalNodeConfig) |  |  |
 | attachment_context | [AttachmentContext](#datapathplugins-AttachmentContext) |  |  |
-| hooks | [LoadHooksRequest.Hook](#datapathplugins-LoadHooksRequest-Hook) | repeated |  |
+| hooks | [InstrumentCollectionRequest.Hook](#datapathplugins-InstrumentCollectionRequest-Hook) | repeated |  |
 | cookie | [string](#string) |  |  |
 
 
@@ -107,25 +107,25 @@ inject hooks.
 
 
 
-<a name="datapathplugins-LoadHooksRequest-Collection"></a>
+<a name="datapathplugins-InstrumentCollectionRequest-Collection"></a>
 
-### LoadHooksRequest.Collection
+### InstrumentCollectionRequest.Collection
 Program and map IDs in the collection
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| programs | [LoadHooksRequest.Collection.ProgramsEntry](#datapathplugins-LoadHooksRequest-Collection-ProgramsEntry) | repeated |  |
-| maps | [LoadHooksRequest.Collection.MapsEntry](#datapathplugins-LoadHooksRequest-Collection-MapsEntry) | repeated |  |
+| programs | [InstrumentCollectionRequest.Collection.ProgramsEntry](#datapathplugins-InstrumentCollectionRequest-Collection-ProgramsEntry) | repeated |  |
+| maps | [InstrumentCollectionRequest.Collection.MapsEntry](#datapathplugins-InstrumentCollectionRequest-Collection-MapsEntry) | repeated |  |
 
 
 
 
 
 
-<a name="datapathplugins-LoadHooksRequest-Collection-Map"></a>
+<a name="datapathplugins-InstrumentCollectionRequest-Collection-Map"></a>
 
-### LoadHooksRequest.Collection.Map
+### InstrumentCollectionRequest.Collection.Map
 
 
 
@@ -138,25 +138,25 @@ Program and map IDs in the collection
 
 
 
-<a name="datapathplugins-LoadHooksRequest-Collection-MapsEntry"></a>
+<a name="datapathplugins-InstrumentCollectionRequest-Collection-MapsEntry"></a>
 
-### LoadHooksRequest.Collection.MapsEntry
+### InstrumentCollectionRequest.Collection.MapsEntry
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [LoadHooksRequest.Collection.Map](#datapathplugins-LoadHooksRequest-Collection-Map) |  |  |
+| value | [InstrumentCollectionRequest.Collection.Map](#datapathplugins-InstrumentCollectionRequest-Collection-Map) |  |  |
 
 
 
 
 
 
-<a name="datapathplugins-LoadHooksRequest-Collection-Program"></a>
+<a name="datapathplugins-InstrumentCollectionRequest-Collection-Program"></a>
 
-### LoadHooksRequest.Collection.Program
+### InstrumentCollectionRequest.Collection.Program
 Would contain information about programs and maps in this collection
 such as names, IDs, etc. This could be consumed by plugin programs
 themselves, e.g., for sharing map state.
@@ -171,25 +171,25 @@ themselves, e.g., for sharing map state.
 
 
 
-<a name="datapathplugins-LoadHooksRequest-Collection-ProgramsEntry"></a>
+<a name="datapathplugins-InstrumentCollectionRequest-Collection-ProgramsEntry"></a>
 
-### LoadHooksRequest.Collection.ProgramsEntry
+### InstrumentCollectionRequest.Collection.ProgramsEntry
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [LoadHooksRequest.Collection.Program](#datapathplugins-LoadHooksRequest-Collection-Program) |  |  |
+| value | [InstrumentCollectionRequest.Collection.Program](#datapathplugins-InstrumentCollectionRequest-Collection-Program) |  |  |
 
 
 
 
 
 
-<a name="datapathplugins-LoadHooksRequest-Hook"></a>
+<a name="datapathplugins-InstrumentCollectionRequest-Hook"></a>
 
-### LoadHooksRequest.Hook
+### InstrumentCollectionRequest.Hook
 
 
 
@@ -197,7 +197,7 @@ themselves, e.g., for sharing map state.
 | ----- | ---- | ----- | ----------- |
 | type | [HookType](#datapathplugins-HookType) |  |  |
 | target | [string](#string) |  |  |
-| attach_target | [LoadHooksRequest.Hook.AttachTarget](#datapathplugins-LoadHooksRequest-Hook-AttachTarget) |  | Contains target metadata necessary for freplace program load. |
+| attach_target | [InstrumentCollectionRequest.Hook.AttachTarget](#datapathplugins-InstrumentCollectionRequest-Hook-AttachTarget) |  | Contains target metadata necessary for freplace program load. |
 | pin_path | [string](#string) |  | The plugin must pin the program to this pin path before responding to Cilium. |
 
 
@@ -205,9 +205,9 @@ themselves, e.g., for sharing map state.
 
 
 
-<a name="datapathplugins-LoadHooksRequest-Hook-AttachTarget"></a>
+<a name="datapathplugins-InstrumentCollectionRequest-Hook-AttachTarget"></a>
 
-### LoadHooksRequest.Hook.AttachTarget
+### InstrumentCollectionRequest.Hook.AttachTarget
 
 
 
@@ -221,9 +221,9 @@ themselves, e.g., for sharing map state.
 
 
 
-<a name="datapathplugins-LoadHooksResponse"></a>
+<a name="datapathplugins-InstrumentCollectionResponse"></a>
 
-### LoadHooksResponse
+### InstrumentCollectionResponse
 
 
 
@@ -244,9 +244,9 @@ TBD
 
 
 
-<a name="datapathplugins-PrepareHooksRequest"></a>
+<a name="datapathplugins-PrepareCollectionRequest"></a>
 
-### PrepareHooksRequest
+### PrepareCollectionRequest
 Phase 1: As Cilium loads and prepares a collection for a particular
 attachment point, it sends a PrepareHooksRequest to each plugin with context
 about the attachment point, collection, and local node config. The plugin
@@ -256,7 +256,7 @@ them, and informs Cilium in the PrepareHooksResponse.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| collection | [PrepareHooksRequest.CollectionSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec) |  |  |
+| collection | [PrepareCollectionRequest.CollectionSpec](#datapathplugins-PrepareCollectionRequest-CollectionSpec) |  |  |
 | local_node_config | [LocalNodeConfig](#datapathplugins-LocalNodeConfig) |  |  |
 | attachment_context | [AttachmentContext](#datapathplugins-AttachmentContext) |  |  |
 
@@ -265,93 +265,93 @@ them, and informs Cilium in the PrepareHooksResponse.
 
 
 
-<a name="datapathplugins-PrepareHooksRequest-CollectionSpec"></a>
+<a name="datapathplugins-PrepareCollectionRequest-CollectionSpec"></a>
 
-### PrepareHooksRequest.CollectionSpec
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| programs | [PrepareHooksRequest.CollectionSpec.ProgramsEntry](#datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramsEntry) | repeated |  |
-| maps | [PrepareHooksRequest.CollectionSpec.MapsEntry](#datapathplugins-PrepareHooksRequest-CollectionSpec-MapsEntry) | repeated |  |
-
-
-
-
-
-
-<a name="datapathplugins-PrepareHooksRequest-CollectionSpec-MapSpec"></a>
-
-### PrepareHooksRequest.CollectionSpec.MapSpec
-
-
-
-
-
-
-
-<a name="datapathplugins-PrepareHooksRequest-CollectionSpec-MapsEntry"></a>
-
-### PrepareHooksRequest.CollectionSpec.MapsEntry
+### PrepareCollectionRequest.CollectionSpec
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| key | [string](#string) |  |  |
-| value | [PrepareHooksRequest.CollectionSpec.MapSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec-MapSpec) |  |  |
+| programs | [PrepareCollectionRequest.CollectionSpec.ProgramsEntry](#datapathplugins-PrepareCollectionRequest-CollectionSpec-ProgramsEntry) | repeated |  |
+| maps | [PrepareCollectionRequest.CollectionSpec.MapsEntry](#datapathplugins-PrepareCollectionRequest-CollectionSpec-MapsEntry) | repeated |  |
 
 
 
 
 
 
-<a name="datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramSpec"></a>
+<a name="datapathplugins-PrepareCollectionRequest-CollectionSpec-MapSpec"></a>
 
-### PrepareHooksRequest.CollectionSpec.ProgramSpec
-
-
+### PrepareCollectionRequest.CollectionSpec.MapSpec
 
 
 
 
 
-<a name="datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramsEntry"></a>
 
-### PrepareHooksRequest.CollectionSpec.ProgramsEntry
+
+<a name="datapathplugins-PrepareCollectionRequest-CollectionSpec-MapsEntry"></a>
+
+### PrepareCollectionRequest.CollectionSpec.MapsEntry
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
-| value | [PrepareHooksRequest.CollectionSpec.ProgramSpec](#datapathplugins-PrepareHooksRequest-CollectionSpec-ProgramSpec) |  |  |
+| value | [PrepareCollectionRequest.CollectionSpec.MapSpec](#datapathplugins-PrepareCollectionRequest-CollectionSpec-MapSpec) |  |  |
 
 
 
 
 
 
-<a name="datapathplugins-PrepareHooksResponse"></a>
+<a name="datapathplugins-PrepareCollectionRequest-CollectionSpec-ProgramSpec"></a>
 
-### PrepareHooksResponse
+### PrepareCollectionRequest.CollectionSpec.ProgramSpec
+
+
+
+
+
+
+
+<a name="datapathplugins-PrepareCollectionRequest-CollectionSpec-ProgramsEntry"></a>
+
+### PrepareCollectionRequest.CollectionSpec.ProgramsEntry
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| hooks | [PrepareHooksResponse.HookSpec](#datapathplugins-PrepareHooksResponse-HookSpec) | repeated |  |
-| cookie | [string](#string) |  | May be used by a plugin to associate a LoadHooksRequest with its preceding PrepareHooksRequest or carry other metadata between phases that may be helpful. |
+| key | [string](#string) |  |  |
+| value | [PrepareCollectionRequest.CollectionSpec.ProgramSpec](#datapathplugins-PrepareCollectionRequest-CollectionSpec-ProgramSpec) |  |  |
 
 
 
 
 
 
-<a name="datapathplugins-PrepareHooksResponse-HookSpec"></a>
+<a name="datapathplugins-PrepareCollectionResponse"></a>
 
-### PrepareHooksResponse.HookSpec
+### PrepareCollectionResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| hooks | [PrepareCollectionResponse.HookSpec](#datapathplugins-PrepareCollectionResponse-HookSpec) | repeated |  |
+| cookie | [string](#string) |  | repeated MapReplacement map_replacements = 2; ... May be used by a plugin to associate a LoadHooksRequest with its preceding PrepareHooksRequest or carry other metadata between phases that may be helpful. |
+
+
+
+
+
+
+<a name="datapathplugins-PrepareCollectionResponse-HookSpec"></a>
+
+### PrepareCollectionResponse.HookSpec
 
 
 
@@ -359,23 +359,23 @@ them, and informs Cilium in the PrepareHooksResponse.
 | ----- | ---- | ----- | ----------- |
 | type | [HookType](#datapathplugins-HookType) |  | PRE/POST (for now) |
 | target | [string](#string) |  | Which program are we instrumenting? |
-| constraints | [PrepareHooksResponse.HookSpec.OrderingConstraint](#datapathplugins-PrepareHooksResponse-HookSpec-OrderingConstraint) | repeated |  |
+| constraints | [PrepareCollectionResponse.HookSpec.OrderingConstraint](#datapathplugins-PrepareCollectionResponse-HookSpec-OrderingConstraint) | repeated |  |
 
 
 
 
 
 
-<a name="datapathplugins-PrepareHooksResponse-HookSpec-OrderingConstraint"></a>
+<a name="datapathplugins-PrepareCollectionResponse-HookSpec-OrderingConstraint"></a>
 
-### PrepareHooksResponse.HookSpec.OrderingConstraint
+### PrepareCollectionResponse.HookSpec.OrderingConstraint
 An OrderingConstraint is a constraint about where this hook should
 go at this hook point relative to other plugins&#39; hooks.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| order | [PrepareHooksResponse.HookSpec.OrderingConstraint.Order](#datapathplugins-PrepareHooksResponse-HookSpec-OrderingConstraint-Order) |  |  |
+| order | [PrepareCollectionResponse.HookSpec.OrderingConstraint.Order](#datapathplugins-PrepareCollectionResponse-HookSpec-OrderingConstraint-Order) |  |  |
 | plugin | [string](#string) |  |  |
 
 
@@ -397,9 +397,9 @@ go at this hook point relative to other plugins&#39; hooks.
 
 
 
-<a name="datapathplugins-PrepareHooksResponse-HookSpec-OrderingConstraint-Order"></a>
+<a name="datapathplugins-PrepareCollectionResponse-HookSpec-OrderingConstraint-Order"></a>
 
-### PrepareHooksResponse.HookSpec.OrderingConstraint.Order
+### PrepareCollectionResponse.HookSpec.OrderingConstraint.Order
 
 
 | Name | Number | Description |
@@ -420,8 +420,8 @@ go at this hook point relative to other plugins&#39; hooks.
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| PrepareHooks | [PrepareHooksRequest](#datapathplugins-PrepareHooksRequest) | [PrepareHooksResponse](#datapathplugins-PrepareHooksResponse) |  |
-| LoadHooks | [LoadHooksRequest](#datapathplugins-LoadHooksRequest) | [LoadHooksResponse](#datapathplugins-LoadHooksResponse) |  |
+| PrepareCollection | [PrepareCollectionRequest](#datapathplugins-PrepareCollectionRequest) | [PrepareCollectionResponse](#datapathplugins-PrepareCollectionResponse) |  |
+| InstrumentCollection | [InstrumentCollectionRequest](#datapathplugins-InstrumentCollectionRequest) | [InstrumentCollectionResponse](#datapathplugins-InstrumentCollectionResponse) |  |
 
  
 
