@@ -1,14 +1,12 @@
 package plugins
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"path/filepath"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/datapathplugins"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -19,6 +17,14 @@ import (
 const (
 	sockFileName = "plugin.sock"
 )
+
+func pluginStateDir(stateDir, name string) string {
+	return filepath.Join(stateDir, name)
+}
+
+func pluginSocketFile(stateDir, name string) string {
+	return filepath.Join(pluginStateDir(stateDir, name), sockFileName)
+}
 
 type Plugin interface {
 	datapathplugins.DatapathPluginClient
@@ -71,7 +77,7 @@ func (m *registry) Register(datapathPlugin DatapathPlugin) error {
 		return nil
 	}
 
-	c, err := grpc.NewClient("unix://"+filepath.Join(m.datapathPluginStateDir, datapathPlugin.Name, sockFileName), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c, err := grpc.NewClient("unix://"+pluginSocketFile(m.datapathPluginStateDir, datapathPlugin.Name), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("creating client: %w", err)
 	}
@@ -82,8 +88,6 @@ func (m *registry) Register(datapathPlugin DatapathPlugin) error {
 		conn:                 c,
 		logger:               m.logger.With("plugin", datapathPlugin.Name),
 	}
-
-	go m.registry[datapathPlugin.Name].monitor()
 
 	return nil
 }
@@ -119,7 +123,6 @@ type plugin struct {
 	DatapathPlugin
 	datapathplugins.DatapathPluginClient
 	conn   *grpc.ClientConn
-	cancel func()
 	logger *slog.Logger
 }
 
@@ -135,34 +138,5 @@ func (p *plugin) close() error {
 	if p.conn == nil {
 		return nil
 	}
-	p.cancel()
 	return p.conn.Close()
-}
-
-func (p *plugin) monitor() {
-	ctx, cancel := context.WithCancel(context.Background())
-	p.cancel = cancel
-
-	p.logger.Info("Starting datapath plugin monitor")
-	p.logger.Info("Datapath plugin connection state", logfields.State, p.conn.GetState().String())
-
-	for p.conn.WaitForStateChange(ctx, p.conn.GetState()) {
-		p.logger.Info("Datapath plugin connection state", logfields.State, p.conn.GetState().String())
-	}
-
-	p.logger.Info("Shutting down datapath plugin monitor")
-}
-
-func endpointAttachmentContext(ep datapath.Endpoint) *datapathplugins.AttachmentContext {
-	return &datapathplugins.AttachmentContext{
-		Context: &datapathplugins.AttachmentContext_Tc{
-			Tc: &datapathplugins.AttachmentContext_TC{
-				EpConfig: &datapathplugins.AttachmentContext_TC_EndpointConfig{},
-			},
-		},
-	}
-}
-
-func localNodeConfig(lnc *datapath.LocalNodeConfiguration) *datapathplugins.LocalNodeConfig {
-	return &datapathplugins.LocalNodeConfig{}
 }

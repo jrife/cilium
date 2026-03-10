@@ -22,8 +22,6 @@ func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[Datapa
 	jg.Add(job.OneShot(
 		"follow",
 		func(ctx context.Context, _ cell.Health) error {
-			// Start tracking changes to the table. This instructs the database
-			// to keep deleted objects off to the side for us to observe.
 			wtxn := db.WriteTxn(table)
 			changeIterator, err := table.Changes(wtxn)
 			wtxn.Commit()
