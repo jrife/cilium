@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright Authors of Cilium */
+
+#include <linux/bpf.h>
+#include <linux/pkt_cls.h>
+
+#include <bpf/bpf_helpers.h>
+
+char attachment_context[256];
+
+SEC("freplace")
+int before(struct xdp_md *ctx)
+{
+	bpf_printk("before %s\n", attachment_context);
+
+	return TC_ACT_UNSPEC;
+}
+
+SEC("freplace")
+int after(struct xdp_md *ctx, int ret)
+{
+	bpf_printk("after %s (ret=%d)\n", attachment_context, ret);
+
+	return TC_ACT_UNSPEC;
+}
+
+char _license[] SEC("license") = "GPL";
+
