@@ -74,35 +74,39 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("writing copyright header: %w", err)
 	}
 
-	b.WriteString("package config\n\n")
+	b.WriteString("package latest\n\n")
+	b.WriteString("import \"fmt\"\n\n")
 	b.WriteString(s)
 	os.WriteFile(goOut, []byte(b.String()), 0644)
 
-	b.Reset()
-	s, err = fieldsToMessage(fields, name, embeds)
-	if err != nil {
-		return fmt.Errorf("generating config struct: %w", err)
-	}
-	if err := writeCopyrightHeader(&b); err != nil {
-		return fmt.Errorf("writing copyright header: %w", err)
-	}
-	if err := writeProtoHeader(&b, goPkg, protoImports); err != nil {
-		return fmt.Errorf("writing proto header: %w", err)
-	}
-	b.WriteString(s)
-	fmt.Println(protoOut)
-	os.WriteFile(protoOut, []byte(b.String()), 0644)
+	// b.Reset()
+	// s, err = fieldsToMessage(fields, name, embeds)
+	// if err != nil {
+	// 	return fmt.Errorf("generating config struct: %w", err)
+	// }
+	// if err := writeCopyrightHeader(&b); err != nil {
+	// 	return fmt.Errorf("writing copyright header: %w", err)
+	// }
+	// if err := writeProtoHeader(&b, goPkg, protoImports); err != nil {
+	// 	return fmt.Errorf("writing proto header: %w", err)
+	// }
+	// b.WriteString(s)
+	// fmt.Println(protoOut)
+	// os.WriteFile(protoOut, []byte(b.String()), 0644)
 
 	return nil
 }
 
 type field struct {
-	comment   string
-	goName    string
-	cName     string
-	goType    string
-	protoType string
-	defValue  string
+	comment              string
+	goName               string
+	cName                string
+	originalType         string
+	goType               string
+	protoType            string
+	defValue             string
+	originalTypeLenBytes int
+	goTypeLenBytes       int
 }
 
 func specToFields(spec *ebpf.CollectionSpec, kind string) ([]field, error) {
@@ -138,7 +142,7 @@ func specToFields(spec *ebpf.CollectionSpec, kind string) ([]field, error) {
 			return nil, fmt.Errorf("variable %s has no doc comment", n)
 		}
 
-		goType, protoType, err := btfVarGoAndProtoType(v.Type)
+		originalType, originalTypeBytes, goType, goTypeBytes, protoType, err := btfVarGoAndProtoType(v.Type)
 		if err != nil {
 			return nil, fmt.Errorf("variable %s: getting Go type: %w", n, err)
 		}
@@ -153,7 +157,17 @@ func specToFields(spec *ebpf.CollectionSpec, kind string) ([]field, error) {
 			return nil, fmt.Errorf("variable %s: getting default Go value: %w", n, err)
 		}
 
-		fields = append(fields, field{comment, camelCase(n), n, goType, protoType, goValueLiteral(defValue)})
+		fields = append(fields, field{
+			comment:              comment,
+			goName:               camelCase(n),
+			cName:                n,
+			originalType:         originalType,
+			originalTypeLenBytes: originalTypeBytes,
+			goType:               goType,
+			goTypeLenBytes:       goTypeBytes,
+			protoType:            protoType,
+			defValue:             goValueLiteral(defValue),
+		})
 	}
 
 	slices.SortStableFunc(fields, func(a, b field) int {
@@ -166,6 +180,7 @@ func specToFields(spec *ebpf.CollectionSpec, kind string) ([]field, error) {
 // fieldsToStruct generates a Go struct from the fields derived from variables
 // in the CollectionSpec.
 func fieldsToStruct(fields []field, name, comment string, embeds []string) (string, error) {
+
 	var b strings.Builder
 
 	// Render a Go type definition for a configuration struct.
@@ -174,9 +189,9 @@ func fieldsToStruct(fields []field, name, comment string, embeds []string) (stri
 	}
 	b.WriteString(fmt.Sprintf("type %s struct {\n", name))
 
-	for _, f := range fields {
+	for i, f := range fields {
 		b.WriteString(f.comment)
-		b.WriteString(fmt.Sprintf("\t%s %s `%s:\"%s\"`\n", f.goName, f.goType, config.TagName, f.cName))
+		b.WriteString(fmt.Sprintf("\t%s %s `%s:\"%s,%d\" %s:\"%s,%d,opt,name=%s\"`\n", f.goName, f.goType, config.TagName, f.cName, f.originalTypeLenBytes, protobufTagName, f.protoType, i+1, f.cName))
 	}
 
 	if len(embeds) > 0 {
@@ -206,6 +221,45 @@ func fieldsToStruct(fields []field, name, comment string, embeds []string) (stri
 	}
 	b.WriteString(join(vals))
 	b.WriteString("}\n")
+	b.WriteString("}\n")
+
+	b.WriteString(fmt.Sprintf("\nfunc (c *%s) Map() (map[string]any, error) {\n", name))
+	b.WriteString("\tresult := make(map[string]any)\n")
+	for _, e := range embeds {
+		b.WriteString(fmt.Sprintf("\tmap%s, err := c.%s.Map()\n", e, e))
+
+		b.WriteString("\tif err != nil {\n")
+		b.WriteString(fmt.Sprintf("\t\treturn nil, fmt.Errorf(\"%s: %%w\", err)\n", e))
+		b.WriteString("\t}\n")
+
+		b.WriteString(fmt.Sprintf("\tfor name, val := range map%s {\n", e))
+		b.WriteString("\t\tif _, ok := result[name]; ok {\n")
+		b.WriteString(fmt.Sprintf("\t\t\treturn nil, fmt.Errorf(\"%s: %%s exists in two embedded types\", name)\n", e))
+		b.WriteString("\t\t}\n")
+		b.WriteString("\t\tresult[name] = val\n")
+		b.WriteString("\t}\n")
+	}
+	for _, f := range fields {
+		if f.goType == "[]byte" {
+			// Make sure length is == specified size
+			b.WriteString(fmt.Sprintf("\tif (len(c.%s) != %d) {\n", f.goName, f.originalTypeLenBytes))
+			b.WriteString(fmt.Sprintf("\t\treturn nil, fmt.Errorf(\"%s must be %d bytes (got %%d)\", len(c.%s))\n", f.goName, f.originalTypeLenBytes, f.goName))
+			b.WriteString("\t}\n")
+			b.WriteString(fmt.Sprintf("\t%s := [%d]byte{}\n", f.goName, f.originalTypeLenBytes))
+			b.WriteString(fmt.Sprintf("\tcopy(%s[:], c.%s)\n", f.goName, f.goName))
+			b.WriteString(fmt.Sprintf("\tresult[\"%s\"] = %s\n", f.cName, f.goName))
+		} else if f.goTypeLenBytes > f.originalTypeLenBytes {
+			// Make sure value fits into f.lenBytes
+			b.WriteString(fmt.Sprintf("\t%s := %s(c.%s)\n", f.goName, f.originalType, f.goName))
+			b.WriteString(fmt.Sprintf("\tif (%s(%s) != c.%s) {\n", f.goType, f.goName, f.goName))
+			b.WriteString(fmt.Sprintf("\t\treturn nil, fmt.Errorf(\"%s must fit into a %s (value = %%d)\", c.%s)\n", f.goName, f.originalType, f.goName))
+			b.WriteString("\t}\n")
+			b.WriteString(fmt.Sprintf("\tresult[\"%s\"] = %s\n", f.cName, f.goName))
+		} else {
+			b.WriteString(fmt.Sprintf("\tresult[\"%s\"] = c.%s\n", f.cName, f.goName))
+		}
+	}
+	b.WriteString("\treturn result, nil\n")
 	b.WriteString("}\n")
 
 	return b.String(), nil
@@ -365,52 +419,62 @@ func sentencify(s string) string {
 
 // btfVarGoType converts the type of an integer btf.Var to its equivalent Go
 // and protobuf type name.
-func btfVarGoAndProtoType(v *btf.Var) (string, string, error) {
+func btfVarGoAndProtoType(v *btf.Var) (originalType string, originalTypeBytes int, goType string, goTypeBytes int, protoType string, err error) {
+	// originalType:         "",
+	// 	goType:               goType,
+	// 	protoType:            protoType,
+	// 	originalTypeLenBytes: lenBytes,
+	// 	goTypeLenBytes:       0,
+	// })
 	switch t := btf.UnderlyingType(v.Type).(type) {
 	case *btf.Int:
+		originalTypeBytes = int(t.Size)
 		if t.Encoding == btf.Char {
-			return "byte", "int32", nil
+			return "byte", originalTypeBytes, "int32", 4, "varint", nil
 		}
 
 		if t.Encoding == btf.Bool {
-			return "bool", "bool", nil
+			return "bool", originalTypeBytes, "bool", int(t.Size), "bool", nil
 		}
 
 		if t.Size > 8 {
-			return "", "", fmt.Errorf("unsupported size %d", t.Size)
+			return "", 0, "", 0, "", fmt.Errorf("unsupported size %d", t.Size)
 		}
 
 		base := "int"
 		if t.Encoding == btf.Unsigned {
 			base = "uint"
 		}
-		goType := fmt.Sprintf("%s%d", base, t.Size*8)
-		protoType := goType
+		originalType := fmt.Sprintf("%s%d", base, t.Size*8)
 		if t.Size <= 2 {
-			protoType = fmt.Sprintf("%s32", base)
+			goType = fmt.Sprintf("%s32", base)
+			goTypeBytes = 4
+		} else {
+			goType = originalType
+			goTypeBytes = originalTypeBytes
 		}
-		return goType, protoType, nil
+		return originalType, originalTypeBytes, goType, goTypeBytes, "varint", nil
 
 	case *btf.Union:
 		// Unions can't be represented in Go and are most often used for accessing
 		// subfields of addresses. Emit a fixed-size byte array instead.
-		return fmt.Sprintf("[%d]byte", t.Size), "bytes", nil
+		return fmt.Sprintf("[%d]byte", int(t.Size)), int(t.Size), "[]byte", int(t.Size), "bytes", nil
 
 	default:
-		return "", "", fmt.Errorf("unsupported type %T", btf.UnderlyingType(v.Type))
+		return "", 0, "", 0, "", fmt.Errorf("unsupported type %T", btf.UnderlyingType(v.Type))
 	}
 }
 
 // goValueLiteral returns a string representation of a Go value.
 func goValueLiteral(v any) string {
 	str := fmt.Sprintf("%#v", v)
-	switch t := v.(type) {
-	case []byte:
-		// Replace a slice literal with a fixed-size array literal. Since we can't
-		// create arrays of a given size at runtime to feed to fmt.Sprintf(), do a
-		// manual conversion.
-		str = strings.Replace(str, "[]byte{", fmt.Sprintf("[%d]byte{", len(t)), 1)
-	}
+	// switch t := v.(type) {
+	// case []byte:
+	// 	// Replace a slice literal with a fixed-size array literal. Since we can't
+	// 	// create arrays of a given size at runtime to feed to fmt.Sprintf(), do a
+	// 	// manual conversion.
+	// 	str = strings.Replace(str, "[]byte{", fmt.Sprintf("[%d]byte{", len(t)), 1)
+	// }
 	return str
 }
 

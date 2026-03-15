@@ -50,13 +50,13 @@ message BPFHost {
 	// Ifindex of the interface the bpf program is attached to.
 	uint32 interface_ifindex = 17;
 	// MAC address of the interface the bpf program is attached to.
-	bytes interface_mac = 18;
+	Bytes interface_mac = 18;
 	// If the agent is down for longer than the lease duration, stop responding.
 	uint64 l2_announcements_max_liveness = 19;
 	// Masquerade address for IPv4 traffic.
-	bytes nat_ipv4_masquerade = 20;
+	Bytes nat_ipv4_masquerade = 20;
 	// Masquerade address for IPv6 traffic.
-	bytes nat_ipv6_masquerade = 21;
+	Bytes nat_ipv6_masquerade = 21;
 	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
 	bool proxy_redirect_via_cilium_net = 22;
 	// The endpoint's security label.

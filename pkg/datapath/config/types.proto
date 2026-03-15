@@ -1,0 +1,6 @@
+syntax = "proto2";
+
+package github.com.cilium.cilium.pkg.datapath.config;
+
+message Bytes {
+}

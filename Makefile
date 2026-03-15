@@ -361,7 +361,9 @@ github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1
 github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr
+github.com/cilium/cilium/pkg/datapath/config/latest
 endef
+# github.com/cilium/cilium/pkg/datapath/config/latest
 
 .PHONY: generate-k8s-api-local
 generate-k8s-api-local:

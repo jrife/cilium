@@ -32,11 +32,11 @@ message BPFXDP {
 	// Ifindex of the interface the bpf program is attached to.
 	uint32 interface_ifindex = 9;
 	// MAC address of the interface the bpf program is attached to.
-	bytes interface_mac = 10;
+	Bytes interface_mac = 10;
 	// Masquerade address for IPv4 traffic.
-	bytes nat_ipv4_masquerade = 11;
+	Bytes nat_ipv4_masquerade = 11;
 	// Masquerade address for IPv6 traffic.
-	bytes nat_ipv6_masquerade = 12;
+	Bytes nat_ipv6_masquerade = 12;
 	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
 	bool proxy_redirect_via_cilium_net = 13;
 	// Port number used for the overlay network.

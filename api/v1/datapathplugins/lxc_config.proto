@@ -41,9 +41,9 @@ message BPFLXC {
 	// The endpoint's security ID.
 	uint32 endpoint_id = 13;
 	// The endpoint's IPv4 address.
-	bytes endpoint_ipv4 = 14;
+	Bytes endpoint_ipv4 = 14;
 	// The endpoint's IPv6 address.
-	bytes endpoint_ipv6 = 15;
+	Bytes endpoint_ipv6 = 15;
 	// The endpoint's network namespace cookie.
 	uint64 endpoint_netns_cookie = 16;
 	// Ephemeral port range minimun.
@@ -57,11 +57,11 @@ message BPFLXC {
 	// Ifindex of the interface the bpf program is attached to.
 	uint32 interface_ifindex = 21;
 	// MAC address of the interface the bpf program is attached to.
-	bytes interface_mac = 22;
+	Bytes interface_mac = 22;
 	// Masquerade address for IPv4 traffic.
-	bytes nat_ipv4_masquerade = 23;
+	Bytes nat_ipv4_masquerade = 23;
 	// Masquerade address for IPv6 traffic.
-	bytes nat_ipv6_masquerade = 24;
+	Bytes nat_ipv6_masquerade = 24;
 	// The log level for policy verdicts in workload endpoints.
 	uint32 policy_verdict_log_filter = 25;
 	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.

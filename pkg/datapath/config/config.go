@@ -4,31 +4,32 @@
 package config
 
 import (
+	config_latest "github.com/cilium/cilium/pkg/datapath/config/latest"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
-	node := *NewNode()
+func NodeConfig(lnc *datapath.LocalNodeConfiguration) config_latest.Node {
+	node := *config_latest.NewNode()
 	node.ClusterIDBits = identity.GetClusterIDBits()
 
 	node.CiliumHostIfIndex = lnc.CiliumHostIfIndex
-	node.CiliumHostMAC = lnc.CiliumHostMAC.As8()
+	node.CiliumHostMAC = lnc.CiliumHostMAC.AsSlice()
 	node.CiliumNetIfIndex = lnc.CiliumNetIfIndex
-	node.CiliumNetMAC = lnc.CiliumNetMAC.As8()
+	node.CiliumNetMAC = lnc.CiliumNetMAC.AsSlice()
 
 	if lnc.ServiceLoopbackIPv4.IsValid() {
-		node.ServiceLoopbackIPv4 = lnc.ServiceLoopbackIPv4.As4()
+		node.ServiceLoopbackIPv4 = lnc.ServiceLoopbackIPv4.AsSlice()
 	}
 
 	if lnc.ServiceLoopbackIPv6.IsValid() {
-		node.ServiceLoopbackIPv6 = lnc.ServiceLoopbackIPv6.As16()
+		node.ServiceLoopbackIPv6 = lnc.ServiceLoopbackIPv6.AsSlice()
 	}
 
 	if lnc.CiliumInternalIPv6.IsValid() {
-		node.RouterIPv6 = lnc.CiliumInternalIPv6.As16()
+		node.RouterIPv6 = lnc.CiliumInternalIPv6.AsSlice()
 	}
 
 	node.ClusterID = option.Config.ClusterID
@@ -41,7 +42,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 
 	node.SupportsFIBLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
 
-	node.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
+	node.TracingIPOptionType = uint32(option.Config.IPTracingOptionType)
 
 	if option.Config.PolicyDenyResponse == option.PolicyDenyResponseIcmp {
 		node.PolicyDenyResponseEnabled = true
@@ -49,11 +50,11 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 		node.PolicyDenyResponseEnabled = false
 	}
 
-	node.NodeportPortMin = lnc.LBConfig.NodePortMin
-	node.NodeportPortMax = lnc.LBConfig.NodePortMax
+	node.NodeportPortMin = uint32(lnc.LBConfig.NodePortMin)
+	node.NodeportPortMax = uint32(lnc.LBConfig.NodePortMax)
 
 	if option.Config.EnableNat46X64Gateway {
-		node.NAT46X64Prefix = option.Config.IPv6NAT46x64CIDRBase.As4()
+		node.NAT46X64Prefix = option.Config.IPv6NAT46x64CIDRBase.AsSlice()
 	}
 
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
