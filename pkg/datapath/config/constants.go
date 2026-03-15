@@ -14,4 +14,4 @@ const ConstantPrefix = "__config_"
 const Section = ".rodata.config"
 
 // TagName is the name of the struct tag used to annotate configuration fields.
-const TagName = "config"
+const TagName = "protobuf"
