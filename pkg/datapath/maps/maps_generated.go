@@ -63,18 +63,18 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumEgresscallPolicySpec,
 	newCiliumEncryptStateSpec,
 	newCiliumEventsSpec,
-	newCiliumIPCacheV2Spec,
+	newCiliumIpcacheV2Spec,
 	newCiliumIpmasqV4Spec,
 	newCiliumIpmasqV6Spec,
-	newCiliumIPv4FragDatagramsSpec,
-	newCiliumIPv6FragDatagramsSpec,
+	newCiliumIpv4FragDatagramsSpec,
+	newCiliumIpv6FragDatagramsSpec,
 	newCiliumL2ResponderV4Spec,
 	newCiliumL2ResponderV6Spec,
 	newCiliumLb4AffinitySpec,
 	newCiliumLb4BackendsV3Spec,
 	newCiliumLb4HealthSpec,
 	newCiliumLb4MaglevSpec,
-	newCiliumLb4ReverseNATSpec,
+	newCiliumLb4ReverseNatSpec,
 	newCiliumLb4ReverseSkSpec,
 	newCiliumLb4ServicesV2Spec,
 	newCiliumLb4SourceRangeSpec,
@@ -82,13 +82,13 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumLb6BackendsV3Spec,
 	newCiliumLb6HealthSpec,
 	newCiliumLb6MaglevSpec,
-	newCiliumLb6ReverseNATSpec,
+	newCiliumLb6ReverseNatSpec,
 	newCiliumLb6ReverseSkSpec,
 	newCiliumLb6ServicesV2Spec,
 	newCiliumLb6SourceRangeSpec,
-	newCiliumLBActSpec,
-	newCiliumLBAffinityMatchSpec,
-	newCiliumLXCSpec,
+	newCiliumLbActSpec,
+	newCiliumLbAffinityMatchSpec,
+	newCiliumLxcSpec,
 	newCiliumMcastGroupOuterV4MapSpec,
 	newCiliumMetricsSpec,
 	newCiliumNodeMapV2Spec,
@@ -100,7 +100,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumPerClusterCtTcp6Spec,
 	newCiliumPerClusterSnatV4ExternalSpec,
 	newCiliumPerClusterSnatV6ExternalSpec,
-	newCiliumPercpuTraceIDSpec,
+	newCiliumPercpuTraceIdSpec,
 	newCiliumPolicyV2Spec,
 	newCiliumPolicystatsSpec,
 	newCiliumRatelimitSpec,
@@ -119,8 +119,8 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumSrv6VrfV6Spec,
 	newCiliumSubnetMapSpec,
 	newCiliumThrottleSpec,
-	newCiliumVTEPMapSpec,
-	newCiliumXDPScratchSpec,
+	newCiliumVtepMapSpec,
+	newCiliumXdpScratchSpec,
 }
 
 func newCiliumAuthMapSpec(btf *btf.Spec) *ebpf.MapSpec {
@@ -357,7 +357,7 @@ func newCiliumEventsSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumIPCacheV2Spec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumIpcacheV2Spec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_ipcache_v2",
 		Type:       ebpf.LPMTrie,
@@ -399,7 +399,7 @@ func newCiliumIpmasqV6Spec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumIPv4FragDatagramsSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumIpv4FragDatagramsSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_ipv4_frag_datagrams",
 		Type:       ebpf.LRUHash,
@@ -413,7 +413,7 @@ func newCiliumIPv4FragDatagramsSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumIPv6FragDatagramsSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumIpv6FragDatagramsSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_ipv6_frag_datagrams",
 		Type:       ebpf.LRUHash,
@@ -524,7 +524,7 @@ func newCiliumLb4MaglevInnerSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumLb4ReverseNATSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumLb4ReverseNatSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_lb4_reverse_nat",
 		Type:       ebpf.Hash,
@@ -649,7 +649,7 @@ func newCiliumLb6MaglevInnerSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumLb6ReverseNATSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumLb6ReverseNatSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_lb6_reverse_nat",
 		Type:       ebpf.Hash,
@@ -705,7 +705,7 @@ func newCiliumLb6SourceRangeSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumLBActSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumLbActSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_lb_act",
 		Type:       ebpf.LRUHash,
@@ -719,7 +719,7 @@ func newCiliumLBActSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumLBAffinityMatchSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumLbAffinityMatchSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_lb_affinity_match",
 		Type:       ebpf.Hash,
@@ -733,7 +733,7 @@ func newCiliumLBAffinityMatchSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumLXCSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumLxcSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_lxc",
 		Type:       ebpf.Hash,
@@ -797,7 +797,7 @@ func newCiliumNodeMapV2Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  4,
 		Value:      anyTypeByName(btf, "node_value"),
 		MaxEntries: 16384,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -1004,7 +1004,7 @@ func newCiliumPerClusterSnatV6ExternalInnerSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumPercpuTraceIDSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumPercpuTraceIdSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_percpu_trace_id",
 		Type:       ebpf.PerCPUArray,
@@ -1268,7 +1268,7 @@ func newCiliumThrottleSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumVTEPMapSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumVtepMapSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_vtep_map",
 		Type:       ebpf.Hash,
@@ -1282,7 +1282,7 @@ func newCiliumVTEPMapSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumXDPScratchSpec(btf *btf.Spec) *ebpf.MapSpec {
+func newCiliumXdpScratchSpec(btf *btf.Spec) *ebpf.MapSpec {
 	return &ebpf.MapSpec{
 		Name:       "cilium_xdp_scratch",
 		Type:       ebpf.PerCPUArray,
