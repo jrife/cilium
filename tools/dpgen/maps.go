@@ -93,7 +93,7 @@ func runMaps(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("marshaling combined BTF: %w", err)
 	}
-	if err := os.WriteFile(path.Join(out, mapKVFile), btfBlob, 0644); err != nil {
+	if err := os.WriteFile(path.Join(goOut, mapKVFile), btfBlob, 0644); err != nil {
 		return fmt.Errorf("writing %s: %w", mapKVFile, err)
 	}
 
@@ -129,7 +129,7 @@ func needMapSpec(spec *ebpf.MapSpec) bool {
 func renderMapSpecs(w io.Writer, outer, inner map[string]*ebpf.MapSpec, pkg string) error {
 	tpl, err := template.New("mapSpec").
 		Funcs(map[string]any{
-			"camelCase":        camelCase,
+			"camelCase":        func(s string) string { return camelCase(s, true) },
 			"bpfFlagsToString": bpfFlagsToString,
 		}).
 		Parse(mapSpecTpl)
