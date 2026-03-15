@@ -35,12 +35,12 @@ func (m MAC) String() string {
 	return net.HardwareAddr(m).String()
 }
 
-// As8 returns the MAC as an array of 8 bytes for use in datapath configuration
+// AsSlice returns the MAC as a slice containing 8 bytes for use in datapath
 // structs. This is 8 bytes due to padding of union macaddr.
-func (m MAC) As8() [8]byte {
+func (m MAC) AsSlice() []byte {
 	var res [8]byte
 	copy(res[:], m)
-	return res
+	return res[:]
 }
 
 // ParseMAC parses s only as an IEEE 802 MAC-48.
