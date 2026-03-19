@@ -514,6 +514,17 @@ jobs:
 
           mkdir -p cilium-junits
 
+      - name: Install Cilium Datapath Plugins
+        if: ${{ matrix.enable-datapath-plugins == 'true' }}
+        id: install-cilium-datapath-plugin
+        shell: bash
+        run: |
+	  helm install cilium-datapath-plugin \
+		./examples/datapath-plugin/deploy/helm \
+                --namespace kube-system \
+                --set image.repository="${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}/datapath-plugin-ci" \
+                --set image.tag="${{ inputs.SHA || github.sha }}" \
+
       - name: Install node local DNS
         timeout-minutes: 3
         if: ${{ steps.vars.outputs.downgrade_version != '' && matrix.node-local-dns == 'true' }}
