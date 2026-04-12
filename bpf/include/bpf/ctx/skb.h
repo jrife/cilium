@@ -54,6 +54,8 @@
 
 #define ctx_adjust_meta		({ -ENOTSUPP; })
 
+#define ctx_ct_lookup		bpf_skb_ct_lookup
+
 /* Avoid expensive calls into the kernel flow dissector if it's not an L4
  * hash. We currently only use the hash for debugging. If needed later, we
  * can map it to BPF_FUNC(get_hash_recalc) to get the L4 hash.

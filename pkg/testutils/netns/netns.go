@@ -15,7 +15,7 @@ type NetNS = netns.NetNS
 func NewNetNS(tb testing.TB) *NetNS {
 	tb.Helper()
 
-	ns, err := netns.New()
+	ns, err := netns.Current()
 	if err != nil {
 		tb.Fatal(err)
 	}

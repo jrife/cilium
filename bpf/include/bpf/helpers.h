@@ -119,3 +119,8 @@ static long BPF_FUNC(loop, __u32 nr_loops, void *callback_fn, void *callback_ctx
 static void *BPF_FUNC(ringbuf_reserve, void *ringbuf, __u64 size, __u64 flags);
 static void BPF_FUNC(ringbuf_submit, void *data, __u64 flags);
 static void BPF_FUNC(ringbuf_discard, void *data, __u64 flags);
+
+static long BPF_FUNC(probe_read_kernel, void *dst, __u32 size,
+		     const void *unsafe_ptr);
+extern void bpf_ct_release(struct nf_conn *nfct) __ksym;
+

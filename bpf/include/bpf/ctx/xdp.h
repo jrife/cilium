@@ -111,6 +111,8 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 
 #define ctx_adjust_meta			xdp_adjust_meta
 
+#define ctx_ct_lookup			bpf_xdp_ct_lookup
+
 #define get_hash(ctx)			({ 0; })
 #define get_hash_recalc(ctx)		get_hash(ctx)
 

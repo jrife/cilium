@@ -68,3 +68,9 @@ static struct bpf_sock *BPF_FUNC(skc_lookup_tcp, struct __sk_buff *skb,
 static int BPF_FUNC(sk_release, struct bpf_sock *sk);
 static int BPF_FUNC(sk_assign, struct __sk_buff *skb, struct bpf_sock *sk,
 		    __u64 flags);
+
+extern struct nf_conn *bpf_skb_ct_lookup(struct __sk_buff *skb,
+					 struct bpf_sock_tuple *bpf_tuple,
+					 __u32 tuple__sz,
+					 struct bpf_ct_opts *opts,
+				 	 __u32 opts__sz) __ksym;

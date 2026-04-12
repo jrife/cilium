@@ -455,6 +455,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 			// ip-masq-agent depends on bpf-masq
 			var excludeCIDR *cidr.CIDR
+			// These only apply if BPF masqerade is enabled
 			if option.Config.EnableIPMasqAgent {
 				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
 

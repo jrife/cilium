@@ -21,6 +21,7 @@
 #include "eps.h"
 #include "icmp6.h"
 #include "nat_46x64.h"
+#include "nf_conntrack.h"
 #include "stubs.h"
 #include "trace.h"
 
@@ -217,6 +218,27 @@ set_v4_rtuple(const struct ipv4_ct_tuple *otuple,
 	rtuple->dport = ostate->to_sport;
 }
 
+static __always_inline
+int snat_v4_port_from_nf(struct __ctx_buff *ctx, struct ipv4_ct_tuple *otuple,
+			 const struct ipv4_nat_target *target,
+			 __u16 *port)
+{
+	struct ipv4_ct_tuple rtuple;
+	int err;
+
+	err = nf_ct_lookup_reply_addr_v4(ctx, otuple, &rtuple);
+	if (err)
+		return err;
+
+	if (rtuple.daddr != target->addr || rtuple.saddr != otuple.daddr ||
+	    rtuple.sport != otuple.dport)
+		return -ENOENT;
+
+	*port = rtuple.dport;
+
+	return 0;
+}
+
 static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map,
 					       struct ipv4_ct_tuple *otuple,
 					       struct ipv4_nat_entry *ostate,
@@ -225,6 +247,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 {
 	struct ipv4_ct_tuple rtuple = {};
 	struct ipv4_nat_entry rstate;
+	bool from_nf_ct = false;
 	__u32 *retries_hist;
 	__u32 retries;
 	int ret;
@@ -243,9 +266,13 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 	set_v4_rtuple(otuple, ostate, &rtuple);
 	/* .dport is selected below */
 
-	port = __snat_try_keep_port(target->min_port,
-				    target->max_port,
-				    bpf_ntohs(otuple->sport));
+	/* Prefer to use the port used by netfilter conntrack if present. */
+	if (!snat_v4_port_from_nf(ctx, otuple, target, &port))
+		from_nf_ct = true;
+	else
+		port = __snat_try_keep_port(target->min_port,
+					    target->max_port,
+					    bpf_ntohs(otuple->sport));
 
 	ostate->common.needs_ct = needs_ct;
 	rstate.common.needs_ct = needs_ct;
@@ -255,14 +282,26 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		rtuple.dport = bpf_htons(port);
 
-		/* Try to create a RevSNAT entry. */
-		if (__snat_create(map, &rtuple, &rstate, true) == 0)
-			goto create_nat_entry;
+		/* If we got port from an existing netfilter conntrack entry
+		 * then we just need to reflect the state back into Cilium's
+		 * maps. If instead we're picking the port ourselves we first
+		 * need to reserve it in netfilter conntrack to make sure it
+		 * doesn't conflict with one used to SNAT another flow from
+		 * the same endpoint. Worst case, netfilter may have chosen a
+		 * port that conflicts with one already in use by us in which
+		 * case __snat_create will fail and we will need to loop again
+		 * to find a suitable port.
+		 */
+		if (from_nf_ct || !nf_ct_insert_v4(ctx, otuple, &rtuple))
+			/* Try to create a RevSNAT entry. */
+			if (__snat_create(map, &rtuple, &rstate, true) == 0)
+				goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
 					       retries ? port + 1 :
 					       (__u16)get_prandom_u32());
+		from_nf_ct = false;
 	}
 
 	retries_hist = map_lookup_elem(&cilium_snat_v4_alloc_retries, &(__u32){retries});
@@ -396,6 +435,14 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 }
 
 static __always_inline int
+snat_v4_new_mapping_from_nf_ct(struct __ctx_buff *ctx,
+			       __u32 cluster_id __maybe_unused,
+			       fraginfo_t fraginfo,
+			       __u32 off,
+			       struct trace_ctx *trace,
+			       __s8 *ext_err);
+
+static __always_inline int
 snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct ipv4_ct_tuple *tuple,
 			       fraginfo_t fraginfo,
@@ -411,6 +458,8 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		return DROP_SNAT_NO_MAP_FOUND;
 
 	*state = __snat_lookup(map, tuple);
+	if (!*state)
+		*state = snat_v4_new_mapping_from_nf_ct(ctx);
 
 	if (*state) {
 		struct ipv4_nat_entry *lookup_result;
@@ -680,6 +729,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 * initiated the connection, so no need to SNAT the
 			 * reply.
 			 */
+			// This does a CT map lookup
 			if (ct_is_reply4(get_ct_map4(tuple), tuple))
 				return NAT_PUNT_TO_STACK;
 
@@ -783,6 +833,84 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #endif /*ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
 
 	return NAT_PUNT_TO_STACK;
+}
+
+static __always_inline int
+snat_v4_new_mapping_from_nf_ct(struct __ctx_buff *ctx,
+			       __u32 cluster_id __maybe_unused,
+			       fraginfo_t fraginfo, __u32 off,
+			       struct trace_ctx *trace, __s8 *ext_err)
+{
+	/* What to do here? */
+	/* How to deal with conntrack state? */
+	/* We need to infer whether or not needs_ct would have been set
+	 * in the forward direction and if so create it.
+	 *
+	 * Simulate what these would have returned in the forward
+	 * direction
+	 * * snat_v4_needs_masquerade
+	 * * nodeport_has_nat_conflict_ipv4
+	 *
+	 * Maybe call snat_v4_new_mapping then after generating target
+	 */
+	struct ipv4_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+		.cluster_id = cluster_id,
+#endif
+	};
+	struct ipv4_ct_tuple otuple = {}, rtuple = {};
+	struct iphdr rip4, *ip4;
+	void *data, *data_end;
+	int ret;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	memcpy(&rip4, ip4, sizeof(struct iphdr));
+	rip4.saddr = ip4->daddr;
+	rip4.daddr = ip4->saddr;
+	snat_v4_init_tuple(&rip4, NAT_DIR_EGRESS, &tuple);
+
+	// TODO: fill in ports
+	ret = nf_ct_lookup_forward_addr_v4(ctx, &rtuple, &otuple);
+	if (ret)
+		return ret; /* TODO: is this right? */
+
+	/*
+	 * case 1: otuple's source IP is a local endpoint
+	 *           * We didn't see the forward traffic for this flow, so there
+	 *             is no SNAT entry in the map yet. If we don't create one
+	 *             then one would be created next time forward traffic is
+	 *             sent. BUT we don't know at this point if we'll use host
+	 *             routing or the stack to route traffic to the endpoint.
+	 *             If it will be routed via the stack (LXC interface was
+	 *             programmed and policy programs were installed) then we
+	 *             can safely skip reverse SNAT here. If it will be routed
+	 *             via BPF redirects then we need to do SNAT now.
+	 *
+	 *             In both bpf_lxc and bpf_host, traffic bound for a local
+	 *             endpoint is DROPPED if there is no policy map entry yet.
+	 * case 2: otuple's source IP is a host endpoint
+	 */
+
+	if (lb_is_svc_proto(otuple.nexthdr) &&
+	    nodeport_has_nat_conflict_ipv4(ctx, &rip4, &target))
+		goto apply_snat;
+
+	ret = snat_v4_needs_masquerade(ctx, &otuple, &rip4, fraginfo, off,
+				       &target);
+	if (IS_ERR(ret))
+		goto out;
+
+	if (target.needs_ct)
+		/* Do something? */;
+
+	snat_v4_nat_handle_mapping(ctx, &otuple, fraginfo);
+
+	
+	return 0;
 }
 
 static __always_inline __maybe_unused int

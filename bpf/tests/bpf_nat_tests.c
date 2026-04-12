@@ -1569,4 +1569,32 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
+CHECK("tc", "nat4_nf_ct_lookup")
+int test_nat4_nf_ct_lookup(struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple otuple = {
+		.saddr = bpf_htonl(0xAC120002),
+		.daddr = bpf_htonl(0xC0A8058A),
+		.sport = bpf_htons(43828),
+		.dport = bpf_htons(11111),
+		.nexthdr = IPPROTO_TCP,
+		.flags = NAT_DIR_EGRESS,
+	};
+	struct ipv4_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+		.needs_ct = true,
+		.egress_gateway = true,
+		.addr = bpf_htonl(0x0AA40001),
+	};
+	__u16 port;
+
+	test_init();
+	
+	port = snat_v4_port_from_nf(ctx, &otuple, &target);
+	printk("port %u\n", port);
+
+	test_finish();
+}
+
 BPF_LICENSE("Dual BSD/GPL");

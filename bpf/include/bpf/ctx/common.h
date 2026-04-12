@@ -5,12 +5,15 @@
 
 #include <linux/types.h>
 #include <linux/bpf.h>
+#include <linux/nf_conntrack.h>
 
 #include "../compiler.h"
 #include "../errno.h"
 
 #define __ctx_skb		1
 #define __ctx_xdp		2
+
+#define __ksym			__section(".ksyms")
 
 static __always_inline bool ctx_no_room(const void *needed, const void *limit)
 {

@@ -66,3 +66,12 @@ static int BPF_STUB(xdp_get_tunnel_opt, struct xdp_md *xdp, void *opt,
 static int BPF_FUNC_REMAP(xdp_event_output, struct xdp_md *xdp, void *map,
 			  __u64 index, const void *data, __u32 size) =
 			 (void *)BPF_FUNC_perf_event_output;
+
+static int BPF_STUB(xdp_ct_lookup, struct xdp_md *xdp, void *opt,
+		    __u32 size);
+
+extern struct nf_conn *bpf_xdp_ct_lookup(struct xdp_md *xdp,
+					 struct bpf_sock_tuple *bpf_tuple,
+					 __u32 tuple__sz,
+					 struct bpf_ct_opts *opts,
+					 __u32 opts__sz) __ksym;
