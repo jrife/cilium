@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: iperf
+  namespace: kube-system
+  labels:
+    app: iperf
+spec:
+  selector:
+    matchLabels:
+      name: iperf
+  template:
+    metadata:
+      labels:
+        name: iperf
+    spec:
+      containers:
+      - name: ubuntu
+        image: ubuntu:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Updating and installing required network tools..."
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update && apt-get install -y iperf3
+          while true; do sleep 30; done;
+      - name: iperf3
+        image: networkstatic/iperf3:latest
+        command: ["iperf3", "-s", "-p", "10001"]
+        ports:
+        - containerPort: 10001
+          name: iperf-tcp
+          protocol: TCP

@@ -32,6 +32,8 @@ message AttachmentContext {
     message InterfaceInfo {
         // name of the network interface.
         string name = 1;
+	string mac = 2;
+	string peer_mac = 3;
     }
 
     // PodInfo contains information about a pod.

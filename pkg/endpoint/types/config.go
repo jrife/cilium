@@ -39,6 +39,7 @@ type LoadTimeConfig interface {
 	IPv4Address() netip.Addr
 	IPv6Address() netip.Addr
 	GetNodeMAC() mac.MAC
+	LXCMac() mac.MAC
 	GetIfIndex() int
 	GetEndpointNetNsCookie() uint64
 

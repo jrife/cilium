@@ -59,7 +59,9 @@ func attachmentContextLXC(ep endpoint.Endpoint) *datapathplugins.AttachmentConte
 		Context: &datapathplugins.AttachmentContext_Lxc{
 			Lxc: &datapathplugins.AttachmentContext_LXC{
 				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
-					Name: ep.InterfaceName(),
+					Name:    ep.InterfaceName(),
+					Mac:     "",
+					PeerMac: ep.LXCMac().String(),
 				},
 				PodInfo: &datapathplugins.AttachmentContext_PodInfo{
 					Namespace:     ep.GetK8sNamespace(),

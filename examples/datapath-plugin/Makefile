@@ -17,10 +17,13 @@ generate:
 
 $(TARGET):
 	$(GO_BUILD) -o $(@) .
+	$(GO_BUILD) -o $(@)-tproxy ./tproxy
 
 install: $(TARGET)
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+	$(INSTALL) -m 0755 $(TARGET)-tproxy $(DESTDIR)$(BINDIR)
 
 clean:
 	rm -f $(TARGET)
+	rm -f $(TARGET)-tproxy

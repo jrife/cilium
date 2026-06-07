@@ -233,7 +233,7 @@ func reloadEndpoint(ctx context.Context, logger *slog.Logger, reg *registry.MapR
 	}
 
 	linkDir := bpffsEndpointLinksDir(bpf.CiliumPath(), ep)
-	if err := attachSKBProgram(logger, iface, obj.FromContainer, symbolFromEndpoint,
+	if err := attachSKBProgramTCXAlways(logger, iface, obj.FromContainer, symbolFromEndpoint,
 		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", device, err)
 	}

@@ -11,14 +11,23 @@ operator:
 ipam:
   mode: kubernetes
 ipv6:
-  enabled: true
+  enabled: false
 ipv4:
   enabled: true
 bpf:
   monitorAggregation: none
+  masquerade: true
+  hostRouting: true
+  datapathMode: netkit
+kubeProxyReplacement: true
+routingMode: native
+autoDirectNodeRoutes: true
+ipv4NativeRoutingCIDR: 10.244.0.0/16
 livenessProbe:
   failureThreshold: 9999
 readinessProbe:
   failureThreshold: 9999
 startupProbe:
   failureThreshold: 9999
+datapathPlugins:
+  enabled: true

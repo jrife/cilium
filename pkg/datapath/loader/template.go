@@ -84,6 +84,10 @@ func (t *templateCfg) GetNodeMAC() mac.MAC {
 	return templateMAC
 }
 
+func (t *templateCfg) LXCMac() mac.MAC {
+	return mac.MAC{}
+}
+
 func (t *templateCfg) GetIfIndex() int {
 	return templateIfIndex
 }

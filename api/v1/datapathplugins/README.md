@@ -94,6 +94,8 @@ InterfaceInfo contains information about a network interface.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  | name of the network interface. |
+| mac | [string](#string) |  |  |
+| peer_mac | [string](#string) |  |  |
 
 
 

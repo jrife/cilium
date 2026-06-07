@@ -6,3 +6,5 @@ image:
   # cilium-digest
   digest: ""
   useDigest: false
+netkit:
+  enabled: false

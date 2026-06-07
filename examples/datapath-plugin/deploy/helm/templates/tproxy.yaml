@@ -1,0 +1,91 @@
+{{- define "cilium.image" -}}
+{{- $digest := (.useDigest | default false) | ternary (printf "@%s" .digest) "" -}}
+{{- $tag := .tag | default "" | eq "" | ternary "" (printf ":%s" .tag) -}}
+{{- if .override -}}
+{{- printf "%s" .override -}}
+{{- else -}}
+{{- printf "%s%s%s" .repository $tag $digest -}}
+{{- end -}}
+{{- end -}}
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tproxy
+  namespace: kube-system
+  labels:
+    k8s-app: cilium-datapath-plugin-tproxy
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-datapath-plugin
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-datapath-plugin-tproxy
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium-datapath-plugin-tproxy
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: cilium-datapath-plugin
+    spec:
+      initContainers:
+      - name: iptables
+        image: ubuntu:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -ex
+          echo "Updating and installing required network tools..."
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update && apt-get install -y iptables iproute2
+          
+          echo "Enabling IP forwarding..."
+          sysctl -w net.ipv4.ip_forward=1
+          sysctl -w net.ipv4.conf.all.rp_filter=0
+          sysctl -w net.ipv4.conf.eth0.rp_filter=0
+
+          echo "Configuring policy-based routing..."
+          ip rule add fwmark 0x1 lookup 100
+          ip route add local 0.0.0.0/0 dev lo table 100
+         
+          # 2. Create a custom iptables chain for TPROXY
+          iptables -t mangle -N DIVERT
+
+          # 3. Optimization: If a connection is already established, just mark it and accept it
+          iptables -t mangle -A DIVERT -j MARK --set-mark 1
+          iptables -t mangle -A DIVERT -j ACCEPT
+
+          # 4. Direct matching packets (TCP port 10001) to your TPROXY target
+          # This intercepts incoming/forwarded traffic matching port 10001
+          iptables -t mangle -A PREROUTING -p tcp --dport 10001 -j TPROXY --on-port 11111 --on-ip 127.0.0.1 --tproxy-mark 1
+
+          # 5. Send packets from socket-matching established connections to the DIVERT chain
+          iptables -t mangle -A PREROUTING -p tcp -m socket --nowildcard -j DIVERT
+        securityContext:
+          privileged: true
+      restartPolicy: Always
+      containers:
+      - name: tproxy
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - /usr/local/bin/cilium/datapath-plugin-tproxy
+        args: []
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+      - name: ubuntu
+        image: ubuntu:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Updating and installing required network tools..."
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update && apt-get install -y iptables iproute2 tcpdump wget
+          while true; do sleep 30; done;
+        securityContext:
+          privileged: true

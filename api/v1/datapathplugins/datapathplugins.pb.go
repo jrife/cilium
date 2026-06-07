@@ -537,6 +537,8 @@ type AttachmentContext_InterfaceInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// name of the network interface.
 	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Mac           string `protobuf:"bytes,2,opt,name=mac,proto3" json:"mac,omitempty"`
+	PeerMac       string `protobuf:"bytes,3,opt,name=peer_mac,json=peerMac,proto3" json:"peer_mac,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -574,6 +576,20 @@ func (*AttachmentContext_InterfaceInfo) Descriptor() ([]byte, []int) {
 func (x *AttachmentContext_InterfaceInfo) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *AttachmentContext_InterfaceInfo) GetMac() string {
+	if x != nil {
+		return x.Mac
+	}
+	return ""
+}
+
+func (x *AttachmentContext_InterfaceInfo) GetPeerMac() string {
+	if x != nil {
+		return x.PeerMac
 	}
 	return ""
 }
@@ -1518,16 +1534,18 @@ var File_datapathplugins_datapathplugins_proto protoreflect.FileDescriptor
 
 const file_datapathplugins_datapathplugins_proto_rawDesc = "" +
 	"\n" +
-	"%datapathplugins/datapathplugins.proto\x12\x0fdatapathplugins\x1a\x19google/protobuf/any.proto\"\xa1\b\n" +
+	"%datapathplugins/datapathplugins.proto\x12\x0fdatapathplugins\x1a\x19google/protobuf/any.proto\"\xce\b\n" +
 	"\x11AttachmentContext\x12=\n" +
 	"\x04host\x18\x01 \x01(\v2'.datapathplugins.AttachmentContext.HostH\x00R\x04host\x12:\n" +
 	"\x03lxc\x18\x02 \x01(\v2&.datapathplugins.AttachmentContext.LXCH\x00R\x03lxc\x12F\n" +
 	"\aoverlay\x18\x03 \x01(\v2*.datapathplugins.AttachmentContext.OverlayH\x00R\aoverlay\x12C\n" +
 	"\x06socket\x18\x04 \x01(\v2).datapathplugins.AttachmentContext.SocketH\x00R\x06socket\x12L\n" +
 	"\twireguard\x18\x05 \x01(\v2,.datapathplugins.AttachmentContext.WireguardH\x00R\twireguard\x12:\n" +
-	"\x03xdp\x18\x06 \x01(\v2&.datapathplugins.AttachmentContext.XDPH\x00R\x03xdp\x1a#\n" +
+	"\x03xdp\x18\x06 \x01(\v2&.datapathplugins.AttachmentContext.XDPH\x00R\x03xdp\x1aP\n" +
 	"\rInterfaceInfo\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x1ab\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
+	"\x03mac\x18\x02 \x01(\tR\x03mac\x12\x19\n" +
+	"\bpeer_mac\x18\x03 \x01(\tR\apeerMac\x1ab\n" +
 	"\aPodInfo\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +

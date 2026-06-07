@@ -35,6 +35,14 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         - --unix-socket-path=/var/run/cilium/plugins/example/plugin.sock
+        - --namespace=$(POD_NAMESPACE)
+        - --bpffs-dir=/sys/fs/bpf/datapath-plugin-maps
+        - --netkit-enabled={{ .Values.netkit.enabled }}
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         securityContext:
           capabilities:
             drop:

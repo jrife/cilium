@@ -34,5 +34,6 @@ ARG TARGETARCH
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /root/app
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/local/bin/datapath-plugin /usr/local/bin/cilium/datapath-plugin
+COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/local/bin/datapath-plugin-tproxy /usr/local/bin/cilium/datapath-plugin-tproxy
 
 ENTRYPOINT ["/usr/local/bin/cilium/datapath-plugin"]

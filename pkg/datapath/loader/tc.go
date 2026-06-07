@@ -25,11 +25,22 @@ import (
 // attachSKBProgram attaches prog to device using tcx if available and enabled,
 // or legacy tc as a fallback.
 func attachSKBProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, tcxEnabled bool) error {
+	return attachSKBProgramCommon(logger, device, prog, progName, bpffsDir, parent, tcxEnabled, false)
+}
+
+func attachSKBProgramTCXAlways(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, tcxEnabled bool) error {
+	return attachSKBProgramCommon(logger, device, prog, progName, bpffsDir, parent, tcxEnabled, true)
+}
+
+// attachSKBProgramCommon attaches prog to device using tcx if available and enabled,
+// or legacy tc as a fallback.
+func attachSKBProgramCommon(logger *slog.Logger, device netlink.Link, prog *ebpf.Program, progName, bpffsDir string, parent uint32, tcxEnabled bool, tcxAlways bool) error {
 	if prog == nil {
 		return fmt.Errorf("program %s is nil", progName)
 	}
 
 	if tcxEnabled {
+		pinSuffix := ""
 		// If the device is a netkit device, we know that netkit links are
 		// supported, therefore use netkit instead of tcx. For all others like
 		// host devices, rely on tcx.
@@ -37,12 +48,16 @@ func attachSKBProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Progr
 			if err := upsertNetkitProgram(logger, device, prog, progName, bpffsDir, parent); err != nil {
 				return fmt.Errorf("attaching netkit program %s: %w", progName, err)
 			}
-			return nil
+			if tcxAlways {
+				pinSuffix = "_tcx"
+			} else {
+				return nil
+			}
 		}
 
 		// Attach using tcx if available. This is seamless on interfaces with
 		// existing tc programs since attaching tcx disables legacy tc evaluation.
-		err := upsertTCXProgram(logger, device, prog, progName, bpffsDir, parent)
+		err := upsertTCXProgram(logger, device, prog, progName, bpffsDir, parent, pinSuffix)
 		if err == nil {
 			// Created tcx link, clean up any leftover legacy tc attachments.
 			if err := removeTCFilters(device, parent); err != nil {
