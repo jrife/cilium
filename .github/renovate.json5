@@ -51,6 +51,7 @@
     "pkg/azure/**",
     "images/**",
     "examples/hubble/*",
+    "examples/datapath-plugin/*",
     "go.mod",
     "go.sum",
     "Makefile.defs",
