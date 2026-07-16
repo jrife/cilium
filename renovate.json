@@ -1,0 +1,1023 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "forkProcessing": "enabled",
+  "extends": [
+    "config:recommended",
+    ":gitSignOff",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "ignorePresets": [
+    "group:monorepos",
+    "group:recommended",
+    "monorepo:aws-sdk-go-v2",
+    "monorepo:azure-sdk-for-go",
+    "monorepo:opentelemetry-go",
+    "group:kubernetes",
+    "group:goOpenapi",
+    "group:githubArtifactActions"
+  ],
+  "username": "cilium-renovate[bot]",
+  "repositories": [
+    "cilium/cilium"
+  ],
+  "prConcurrentLimit": 0,
+  "prHourlyLimit": 0,
+  "requireConfig": "ignored",
+  "gitAuthor": "cilium-renovate[bot] <134692979+cilium-renovate[bot]@users.noreply.github.com>",
+  "includePaths": [
+    ".github/actions/bpftrace/**",
+    ".github/actions/cosign/**",
+    ".github/actions/e2e/**",
+    ".github/actions/kvstore/**",
+    ".github/actions/gather-metrics/**",
+    ".github/actions/merge-artifacts/**",
+    ".github/actions/post-logic/**",
+    ".github/actions/ginkgo/**",
+    ".github/actions/lvh-kind/**",
+    ".github/actions/set-env-variables/action.yml",
+    ".github/actions/ipsec/configs.yaml",
+    ".github/workflows/**",
+    ".github/ISSUE_TEMPLATE/bug_report.yaml",
+    "Documentation/requirements-min/requirements.txt",
+    "cilium-cli/**",
+    "pkg/azure/**",
+    "images/**",
+    "examples/hubble/*",
+    "go.mod",
+    "go.sum",
+    "Makefile.defs",
+    "test/packet/scripts/install.sh",
+    "images/builder/install-protoc.sh",
+    "images/builder/install-protoplugins.sh",
+    "install/kubernetes/cilium/templates/spire/**",
+    "install/kubernetes/cilium/values.yaml.tmpl",
+    "install/kubernetes/Makefile.values",
+    "test/k8s/manifests/netpol-cyclonus",
+    ".custom-gcl.yaml"
+  ],
+  "schedule": [
+    "on sunday"
+  ],
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
+  "ignorePaths": [
+    "images/cilium-test/Dockerfile"
+  ],
+  "ignoreDeps": [
+    "google/oss-fuzz"
+  ],
+  "pinDigests": true,
+  "separateMajorMinor": false,
+  "separateMinorPatch": false,
+  "pruneStaleBranches": true,
+  "baseBranchPatterns": [
+    "main",
+    "v1.20",
+    "v1.19",
+    "v1.18",
+    "v1.17"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
+  "labels": [
+    "renovate/stop-updating",
+    "kind/enhancement",
+    "release-note/misc"
+  ],
+  "rebaseLabel": "dont-merge/needs-rebase",
+  "stopUpdatingLabel": "renovate/stop-updating",
+  "allowedCommands": [
+    "^make -C install/kubernetes$",
+    "^make -C Documentation update-helm-values$",
+    "^make -C Documentation update-cmdref$",
+    "^make -C Documentation update-requirements$",
+    "^make manifests$",
+    "^make GO='contrib/scripts/builder.sh go' generate-apis$",
+    "^make GO='contrib/scripts/builder.sh go' generate-k8s-api$",
+    "^go mod tidy$",
+    "^go mod vendor$"
+  ],
+  "assignAutomerge": true,
+  "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
+      "minimumReleaseAge": "5 days"
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "cilium/cilium"
+      ],
+      "matchUpdateTypes": [
+        "digest",
+        "pinDigest"
+      ],
+      "enabled": false
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "golangci/golangci-lint"
+      ],
+      "pinDigests": false
+    },
+    {
+      "matchPackageNames": [
+        "bufbuild/buf",
+        "docker.io/alpine/socat",
+        "docker.io/library/busybox",
+        "eksctl-io/eksctl",
+        "github/codeql-action",
+        "go",
+        "google/cloud-sdk",
+        "google-github-actions/auth",
+        "google-github-actions/setup-gcloud",
+        "grpc-ecosystem/grpc-health-probe",
+        "kindest/node",
+        "kubernetes/kubernetes",
+        "kubernetes-sigs/kind",
+        "quay.io/cilium/cilium-envoy",
+        "quay.io/frrouting/frr",
+        "registry.k8s.io/coredns/coredns",
+        "renovatebot/github-action",
+        "renovatebot/renovate",
+        "ghcr.io/renovatebot/renovate",
+        "actions/{/,}**",
+        "cilium/{/,}**",
+        "docker.io/library/{/,}**",
+        "docker/{/,}**",
+        "gcr.io/distroless{/,}**",
+        "gcr.io/etcd-development/etcd{/,}**",
+        "ghcr.io/spiffe/{/,}**",
+        "github.com/actions/{/,}**",
+        "github.com/aws/{/,}**",
+        "github.com/Azure/{/,}**",
+        "github.com/cilium/{/,}**",
+        "github.com/docker/{/,}**",
+        "github.com/golang/{/,}**",
+        "github.com/google/{/,}**",
+        "github.com/go-openapi/{/,}**",
+        "github.com/hashicorp/{/,}**",
+        "github.com/prometheus/{/,}**",
+        "go.etcd.io/etcd/{/,}**",
+        "golang.org/x/{/,}**",
+        "golangci/golangci-lint{/,}**",
+        "protocolbuffers/protobuf{/,}**",
+        "google.golang.org/{/,}**",
+        "k8s.io/{/,}**",
+        "quay.io/cilium/{/,}**",
+        "quay.io/lvh-images/{/,}**",
+        "sigs.k8s.io/{/,}**"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "groupName": "auto-merge-trusted-deps",
+      "reviewers": [
+        "ciliumbot"
+      ]
+    },
+    {
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest",
+        "lockFileMaintenance",
+        "rollback",
+        "bump",
+        "replacement"
+      ],
+      "groupName": "all-dependencies",
+      "matchPackageNames": [
+        "!quay.io/goswagger/swagger",
+        "!quay.io/cilium/cilium-envoy"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/goswagger/swagger"
+      ],
+      "groupName": "goswagger",
+      "separateMajorMinor": true,
+      "automerge": true,
+      "automergeType": "pr",
+      "reviewers": [
+        "ciliumbot"
+      ]
+    },
+    {
+      "groupName": "all github action dependencies",
+      "groupSlug": "all-github-action",
+      "matchFileNames": [
+        ".github/**"
+      ]
+    },
+    {
+      "groupName": "all go dependencies main",
+      "groupSlug": "all-go-deps-main",
+      "matchFileNames": [
+        "go.mod",
+        "go.sum"
+      ],
+      "postUpdateOptions": [
+        "gomodUpdateImportPaths"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "go mod tidy",
+          "go mod vendor"
+        ],
+        "executionMode": "update"
+      },
+      "matchBaseBranches": [
+        "main"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
+        "go.mod"
+      ],
+      "matchDepNames": [
+        "go"
+      ],
+      "matchDatasources": [
+        "golang-version"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ]
+    },
+    {
+      "enabled": false,
+      "groupName": "all go dependencies stable",
+      "groupSlug": "all-go-deps-stable",
+      "matchFileNames": [
+        "go.mod",
+        "go.sum"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ],
+      "matchDepNames": [
+        "!/^k8s\\.io/",
+        "!/^sigs\\.k8s\\.io/"
+      ]
+    },
+    {
+      "matchDepNames": [
+        "/^k8s\\.io/",
+        "/^sigs\\.k8s\\.io/"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ],
+      "separateMajorMinor": true,
+      "separateMinorPatch": true
+    },
+    {
+      "enabled": true,
+      "groupName": "k8s.io patch updates stable",
+      "groupSlug": "k8s-patch-stable",
+      "matchFileNames": [
+        "go.mod",
+        "go.sum"
+      ],
+      "matchDepNames": [
+        "/^k8s\\.io/",
+        "/^sigs\\.k8s\\.io/"
+      ],
+      "matchUpdateTypes": [
+        "patch",
+        "digest"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "go mod tidy",
+          "go mod vendor",
+          "make GO='contrib/scripts/builder.sh go' generate-k8s-api",
+          "make manifests"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "enabled": false,
+      "matchPackageNames": [
+        "github.com/miekg/dns",
+        "github.com/cilium/dns",
+        "sigs.k8s.io/controller-tools",
+        "github.com/cilium/controller-tools",
+        "github.com/osrg/gobgp/v3",
+        "github.com/cilium/gobgp/v3",
+        "github.com/cilium/client-go",
+        "github.com/cilium/proxy",
+        "sigs.k8s.io/gateway-api",
+        "/.*google/gops/*/",
+        "/github.com/shirou/gopsutil/*/",
+        "/github.com/onsi/ginkgo/",
+        "/github.com/onsi/gomega/*/",
+        "sphinx"
+      ]
+    },
+    {
+      "matchDepNames": [
+        "sigs.k8s.io/network-policy-api"
+      ],
+      "allowedVersions": "!/^v?0\\.1\\.8$/"
+    },
+    {
+      "groupName": "base-images",
+      "matchFileNames": [
+        "images/builder/Dockerfile",
+        "images/runtime/Dockerfile"
+      ],
+      "matchPackageNames": [
+        "docker.io/library/golang"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchPackageNames": [
+        "quay.io/goswagger/swagger"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ]
+    },
+    {
+      "groupName": "all external docker images dependencies",
+      "groupSlug": "all-external-images-deps-stable",
+      "matchFileNames": [
+        "install/kubernetes/Makefile.values"
+      ],
+      "matchPackageNames": [
+        "!quay.io/cilium/cilium-envoy"
+      ],
+      "separateMinorPatch": true,
+      "matchBaseBranches": [
+        "!main"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
+        "install/kubernetes/Makefile.values"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ],
+      "matchDepNames": [
+        "!quay.io/cilium/certgen",
+        "!quay.io/cilium/cilium-envoy"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/ubuntu"
+      ],
+      "allowedVersions": "24.04",
+      "matchBaseBranches": [
+        "v1.20",
+        "v1.19",
+        "v1.18",
+        "v1.17",
+        "main"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
+      "allowedVersions": "<1.26",
+      "matchBaseBranches": [
+        "v1.20",
+        "v1.19",
+        "v1.18",
+        "v1.17"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.24",
+      "matchBaseBranches": [
+        "v1.20",
+        "v1.19"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.23",
+      "matchBaseBranches": [
+        "v1.18"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.20",
+      "matchBaseBranches": [
+        "v1.17"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchPackageNames": [
+        "github.com/cilium/statedb"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "pin",
+        "pinDigest",
+        "digest",
+        "lockFileMaintenance",
+        "rollback",
+        "bump",
+        "replacement"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchDepNames": [
+        "golang.zx2c4.com/wireguard"
+      ],
+      "versioning": "regex:^v?0\\.0\\.0-(?<patch>\\d+)-.*$"
+    },
+    {
+      "groupName": "Cilium CLI",
+      "groupSlug": "cilium-cli",
+      "matchDepNames": [
+        "cilium/cilium-cli"
+      ]
+    },
+    {
+      "groupName": "Hubble CLI",
+      "groupSlug": "hubble-cli",
+      "matchDepNames": [
+        "cilium/hubble",
+        "quay.io/cilium/hubble"
+      ]
+    },
+    {
+      "groupName": "base-images",
+      "matchDepNames": [
+        "go",
+        "docker.io/library/golang"
+      ]
+    },
+    {
+      "groupName": "all-dependencies",
+      "matchDepNames": [
+        "golangci/golangci-lint",
+        "golangci/golangci-lint-action"
+      ]
+    },
+    {
+      "matchDepNames": [
+        "quay.io/lvh-images/complexity-test",
+        "quay.io/lvh-images/kind"
+      ],
+      "versioning": "regex:^((?<compatibility>[a-z0-9-.]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
+    },
+    {
+      "groupName": "stable lvh-images",
+      "groupSlug": "stable-lvh-images",
+      "matchPackageNames": [
+        "cilium/little-vm-helper",
+        "quay.io/lvh-images/complexity-test",
+        "quay.io/lvh-images/kind"
+      ],
+      "allowedVersions": "!/bpf-next-.*/",
+      "matchBaseBranches": [
+        "!main"
+      ]
+    },
+    {
+      "groupName": "all lvh-images main",
+      "groupSlug": "all-lvh-images-main",
+      "matchPackageNames": [
+        "cilium/little-vm-helper",
+        "quay.io/lvh-images/complexity-test",
+        "quay.io/lvh-images/kind"
+      ],
+      "matchBaseBranches": [
+        "main"
+      ]
+    },
+    {
+      "groupName": "all-dependencies",
+      "matchDepNames": [
+        "renovatebot/renovate",
+        "ghcr.io/renovatebot/renovate"
+      ],
+      "matchBaseBranches": [
+        "main"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/lvh-images/complexity-test",
+        "quay.io/lvh-images/kind",
+        "kindest/node",
+        "quay.io/cilium/kindest-node"
+      ],
+      "separateMajorMinor": true,
+      "separateMinorPatch": true
+    },
+    {
+      "enabled": false,
+      "matchPackageNames": [
+        "quay.io/lvh-images/complexity-test",
+        "quay.io/lvh-images/kind",
+        "kindest/node",
+        "quay.io/cilium/kindest-node"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/cilium/kindest-node"
+      ],
+      "ignoreUnstable": false
+    },
+    {
+      "matchFileNames": [
+        "install/kubernetes/Makefile.values"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C install/kubernetes",
+          "make -C Documentation update-helm-values"
+        ],
+        "fileFilters": [
+          "install/kubernetes/Makefile.values",
+          "install/kubernetes/cilium/README.md",
+          "install/kubernetes/cilium/values.yaml",
+          "Documentation/helm-values.rst"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchFileNames": [
+        "cilium-cli/defaults/defaults.go"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C Documentation update-cmdref"
+        ],
+        "fileFilters": [
+          "Documentation/cmdref/cilium_connectivity_test.md",
+          "Documentation/cmdref/cilium_connectivity_perf.md"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchPackageNames": [
+        "github.com/cilium/charts"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C Documentation update-cmdref"
+        ],
+        "fileFilters": [
+          "Documentation/cmdref/cilium_install.md",
+          "Documentation/cmdref/cilium_upgrade.md"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchFileNames": [
+        "Documentation/requirements-min/requirements.txt"
+      ],
+      "pinDigests": false,
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C Documentation update-requirements"
+        ],
+        "fileFilters": [
+          "Documentation/requirements.txt"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
+        "Documentation/requirements-min/requirements.txt"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "matchDepNames": [
+        "/^k8s\\.io/",
+        "/^sigs\\.k8s\\.io/"
+      ]
+    },
+    {
+      "matchDepNames": [
+        "/^k8s\\.io/",
+        "/^sigs\\.k8s\\.io/"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make GO='contrib/scripts/builder.sh go' generate-k8s-api",
+          "make manifests"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "groupName": "base-images",
+      "matchFileNames": [
+        "images/builder/install-protoc.sh",
+        "images/builder/install-protoplugins.sh"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make GO='contrib/scripts/builder.sh go' generate-apis"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchPackageNames": [
+        "protocolbuffers/protobuf",
+        "protocolbuffers/protobuf-go"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make GO='contrib/scripts/builder.sh go' generate-apis"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/goswagger/swagger"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make GO='contrib/scripts/builder.sh go' generate-apis",
+          "make GO='contrib/scripts/builder.sh go' generate-k8s-api"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/cilium/image-compilers",
+        "quay.io/cilium/image-maker",
+        "quay.io/cilium/startup-script",
+        "quay.io/cilium/image-tester"
+      ],
+      "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$",
+      "maxMajorIncrement": 0
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/cilium/cilium-bpftool",
+        "quay.io/cilium/iptables",
+        "quay.io/cilium/cilium-llvm"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-\\d+)?-(?<build>\\d+)-[a-f0-9]{7}$"
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/cilium/cilium-checkpatch",
+        "quay.io/cilium/network-perf"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)-[a-f0-9]{7}$"
+    },
+    {
+      "matchDepNames": [
+        "gcr.io/k8s-staging-gateway-api/echo-advanced"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)-v(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$"
+    },
+    {
+      "matchPackageNames": [
+        "github.com/envoyproxy/go-control-plane/envoy",
+        "github.com/envoyproxy/go-control-plane"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ]
+    },
+    {
+      "groupName": "cilium-envoy",
+      "groupSlug": "cilium-envoy",
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
+      "allowedVersions": "/^v1\\.37\\.([0-9]+)-([0-9]+)-.*$/",
+      "matchBaseBranches": [
+        "main"
+      ]
+    },
+    {
+      "groupName": "cilium-envoy",
+      "groupSlug": "cilium-envoy",
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
+      "allowedVersions": "/^v1\\.36\\.([0-9]+)-([0-9]+)-.*$/",
+      "matchBaseBranches": [
+        "v1.20",
+        "v1.19",
+        "v1.18",
+        "v1.17"
+      ]
+    },
+    {
+      "matchDepNames": [
+        "grpc/grpc-go"
+      ],
+      "versioning": "regex:cmd/protoc-gen-go-grpc/v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
+    },
+    {
+      "matchPackageNames": [
+        "github.com/aliyun/alibaba-cloud-sdk-go",
+        "github.com/aws/smithy-go",
+        "renovatebot/github-action"
+      ],
+      "schedule": [
+        "on the 1st day instance on sunday"
+      ],
+      "matchDepNames": [
+        "/github.com/Azure/azure-sdk-for-go/sdk/*/",
+        "/github.com/aws/aws-sdk-go-v2*/"
+      ]
+    },
+    {
+      "matchFileNames": [
+        ".github/ISSUE_TEMPLATE/bug_report.yaml"
+      ],
+      "matchDepNames": [
+        "cilium/cilium"
+      ],
+      "separateMajorMinor": true,
+      "separateMinorPatch": true,
+      "ignoreUnstable": false,
+      "versioning": "semver"
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
+        ".github/ISSUE_TEMPLATE/bug_report.yaml"
+      ],
+      "matchDepNames": [
+        "cilium/cilium"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
+        ".github/workflows/lint-build-commits.yaml"
+      ],
+      "matchDepTypes": [
+        "github-runner"
+      ],
+      "matchPackageNames": [
+        "ubuntu"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ]
+    },
+    {
+      "groupName": "auto-merge-trusted-deps",
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "separateMinorPatch": true
+    },
+    {
+      "enabled": false,
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "matchBaseBranches": [
+        "v1.17"
+      ]
+    }
+  ],
+  "kubernetes": {
+    "managerFilePatterns": [
+      "/examples/hubble/hubble-cli\\.yaml/"
+    ]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/images/builder/install-protoc.sh/",
+        "/images/builder/install-protoplugins.sh/",
+        "/images/runtime/build-gops.sh/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_version=\"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) digestVersion=(?<currentValue>.*)\\s+.+_sha256.*=\"(?<currentDigest>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s.+@(?<currentValue>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s.+_VERSION=(?<currentValue>.*)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/ISSUE_TEMPLATE/bug_report.yaml/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+- 'equal or higher than (?<currentValue>.*) and lower than.+"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/[^/]+\\.ya?ml$/",
+        "/^\\.github/actions/e2e/[^/]+\\.ya?ml$/",
+        "/^\\.github/actions/ginkgo/[^/]+\\.ya?ml$/",
+        "/^\\.github/actions/ipsec/[^/]+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION: (?<currentValue>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+[\\w.]+:\\s+'(?<currentValue>.*)'",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.*FULL_KERNEL=\"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: \"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: \"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+lvhImage: \"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) branch=(?<currentValue>.*?)\\s+.+_ref: (?<currentDigest>.*)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^Makefile\\.defs$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION = (?<currentValue>.*)\\s+.+_SHA = (?<currentDigest>sha256:[a-f0-9]+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^.github/actions/set-env-variables/action\\.yml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?)\\s+KIND_K8S_IMAGE=\"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^.github/workflows/renovate-config-validator\\.yaml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?)\\s+export RENOVATE_IMAGE=\"?(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"?"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^go\\.mod$/"
+      ],
+      "matchStrings": [
+        "// renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+go (?<currentValue>.*)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/actions/kvstore/action.yaml/"
+      ],
+      "matchStrings": [
+        "default: (?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>.*?)\\s"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^install/kubernetes/Makefile\\.values$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?)\\s+.+_REPO[:?]=(?<depName>.*?)\\s+.+_VERSION[:?]=(?<currentValue>.*)\\s+.+_DIGEST[:?]=(?<currentDigest>sha256:[a-f0-9]+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^cilium-cli/defaults/defaults\\.go$/"
+      ],
+      "matchStrings": [
+        "// renovate: datasource=(?<datasource>.*?)\\s+\"[^\"]+\": \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/actions/lvh-kind/action.yaml/",
+        "/.github/workflows/conformance-ginkgo.yaml/",
+        "/.github/workflows/conformance-runtime.yaml/",
+        "/.github/workflows/tests-datapath-verifier.yaml/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+lvh-version: \"(?<currentValue>.*)\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/workflows/.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "['\"]ubuntu-(?<currentValue>[0-9]{2}\\.[0-9]{2})['\"]"
+      ],
+      "datasourceTemplate": "github-runners",
+      "depNameTemplate": "ubuntu",
+      "packageNameTemplate": "ubuntu"
+    },
+    {
+      "fileMatch": [
+        "^\\.custom-gcl\\.yaml$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+version:\\s+'?(?<currentValue>[^'\"\\s]+)'?"
+      ]
+    }
+  ]
+}
