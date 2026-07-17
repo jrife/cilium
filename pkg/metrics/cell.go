@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/cilium/cilium/pkg/bpf/statsquery/types"
 	pkgmetric "github.com/cilium/cilium/pkg/metrics/metric"
 )
 
@@ -46,12 +47,13 @@ var AgentCell = cell.Group(
 	Cell,
 	Metric(NewLegacyMetrics),
 	cell.Invoke(
-		func(logger *slog.Logger, reg *Registry) {
+		func(logger *slog.Logger, reg *Registry, getter types.ProgStatsGetter) {
 			// Register the agent status and BPF metrics.
 			// Don't register status and BPF collectors into the [r.collectors] as it is
 			// expensive to sample and currently not terrible useful to keep data on.
 			reg.inner.MustRegister(pkgmetric.EnabledCollector{C: newStatusCollector(logger)})
 			reg.inner.MustRegister(pkgmetric.EnabledCollector{C: newbpfCollector(logger)})
+			reg.inner.MustRegister(pkgmetric.EnabledCollector{C: newbpfRuntimeCollector(logger, getter)})
 
 			// Resolve the global registry variable for as long as we still have global functions
 			registryResolver.Resolve(reg)

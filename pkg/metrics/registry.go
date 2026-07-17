@@ -212,6 +212,11 @@ func (r *Registry) registerMetrics() {
 			continue
 		}
 
+		if metricFlag == "-"+Namespace+"_"+SubsystemBPF+"_benchmark" {
+			BPFBenchmarkMetrics = false
+			continue
+		}
+
 		metric := metrics[metricFlag[1:]]
 		if metric == nil {
 			continue

@@ -271,6 +271,7 @@ var (
 
 	BPFMapPressure = true
 
+	BPFBenchmarkMetrics = true
 	// APIInteractions is the total time taken to process an API call made
 	// to the cilium-agent
 	APIInteractions = NoOpObserverVec
