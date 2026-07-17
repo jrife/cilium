@@ -71,5 +71,6 @@ func statsCommands(
 ) hive.ScriptCmdsOut {
 	return hive.NewScriptCmds(map[string]script.Cmd{
 		"bpf/stats/report": reportCommand(progStatsGetter),
+		"bpf/stats/diff":   diffCommand(),
 	})
 }
