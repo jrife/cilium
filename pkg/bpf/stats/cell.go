@@ -8,10 +8,13 @@ import (
 	"log/slog"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
 	"github.com/spf13/pflag"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/bpf/statsquery/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -20,6 +23,7 @@ var Cell = cell.Module(
 	"bpf-stats",
 	"BPF Stats commands",
 
+	cell.Provide(statsCommands),
 	cell.Config(Config{}),
 	cell.Invoke(registerBPFStatsEnable),
 )
@@ -60,4 +64,12 @@ func registerBPFStatsEnable(logger *slog.Logger, lc cell.Lifecycle, cfg Config) 
 			},
 		})
 	}
+}
+
+func statsCommands(
+	progStatsGetter types.ProgStatsGetter,
+) hive.ScriptCmdsOut {
+	return hive.NewScriptCmds(map[string]script.Cmd{
+		"bpf/stats/report": reportCommand(progStatsGetter),
+	})
 }

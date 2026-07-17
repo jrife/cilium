@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgp"
 	stats "github.com/cilium/cilium/pkg/bpf/stats"
+	"github.com/cilium/cilium/pkg/bpf/statsquery"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -186,6 +187,7 @@ var (
 
 		// BPF runtime stats commands for the hive shell.
 		stats.Cell,
+		statsquery.Cell,
 
 		// Cilium Agent Healthz endpoints (agent, kubeproxy, ...)
 		healthz.Cell,
