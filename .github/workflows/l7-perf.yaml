@@ -63,11 +63,11 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.228.0
+  eksctl_version: v0.229.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.36.2
+  kubectl_version: v1.36.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 574.0.0
+  gcloud_version: 578.0.0
 
   test_name: l7-perf
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -119,7 +119,7 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -214,7 +214,7 @@ jobs:
       # steps must take care not to execute untrusted code.
       - name: Checkout context ref (NOT TRUSTED)
         if: ${{ steps.vars.outputs.cilium_version == '' }} # We don't need to checkout the PR if released version installation is requested.
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.vars.outputs.SHA }}
           persist-credentials: false
@@ -244,7 +244,7 @@ jobs:
           fi
 
       - name: Install Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.26.5
@@ -278,7 +278,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
@@ -295,7 +295,7 @@ jobs:
           gcloud version
 
       - name: Clone ClusterLoader2
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kubernetes/perf-tests
           # Avoid using renovate to update this dependency because: (1)
@@ -521,7 +521,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@688f70c8708f4bdd2ef04ad7710d35aaea1ea57c # main
+        uses: cilium/scale-tests-action/export-results@d89fc21b123f4047828366d1505a8bb5d414c07d # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           tested_sha: ${{ steps.vars.outputs.SHA }}
@@ -532,7 +532,7 @@ jobs:
       # Refresh credentials
       - name: Set up AWS CLI credentials
         if:  ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
