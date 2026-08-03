@@ -6,37 +6,35 @@
 package metrics
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/cilium/cilium/pkg/bpf/statsquery/types"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/bpf/stats/types"
 )
 
 type bpfRuntimeCollector struct {
-	logger *slog.Logger
-	getter types.ProgStatsGetter
+	logger    *slog.Logger
+	collector types.ProgStatsCollector
 
 	bpfProgRunsTotal    *prometheus.Desc
 	bpfProgRuntimeTotal *prometheus.Desc
 }
 
-func newbpfRuntimeCollector(logger *slog.Logger, getter types.ProgStatsGetter) *bpfRuntimeCollector {
+func newbpfRuntimeCollector(logger *slog.Logger, collector types.ProgStatsCollector) *bpfRuntimeCollector {
 	return &bpfRuntimeCollector{
-		logger: logger,
-		getter: getter,
+		logger:    logger,
+		collector: collector,
 		bpfProgRunsTotal: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, SubsystemBPF, "prog_total_runs"),
 			"Total executions of a BPF program.",
-			[]string{"node", "id", "pod", "attachment", "name", "type"}, nil,
+			[]string{"node", "program_id", "program_name", "pod_namespace", "pod_name", "device", "name", "type"}, nil,
 		),
 		bpfProgRuntimeTotal: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, SubsystemBPF, "prog_runtime_total_seconds"),
 			"Total execution time of a BPF program in seconds.",
-			[]string{"node", "id", "pod", "attachment", "name", "type"}, nil,
+			[]string{"node", "program_id", "program_name", "pod_namespace", "pod_name", "device", "name", "type"}, nil,
 		),
 	}
 }
@@ -53,47 +51,39 @@ func (s *bpfRuntimeCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	nodeName := getLocalNodeName()
+	// nodeName := getLocalNodeName()
+	//
+	// stats, err := s.getter.QueryProgramStats(nil, nil, nil)
+	// if err != nil {
+	// 	s.logger.Error("Failed to query BPF programs", logfields.Error, err)
+	// 	return
+	// }
 
-	stats, err := s.getter.QueryProgramStats(nil, nil, true, false, nil)
-	if err != nil {
-		s.logger.Error("Failed to query BPF programs", logfields.Error, err)
-		return
-	}
-
-	for _, info := range stats {
-		pod := info.PodName
-		attachment := ""
-		if info.IfaceName != "" {
-			attachment = "host:" + info.IfaceName
-		} else {
-			attachment = "cgroup:root"
-		}
-
-		ch <- prometheus.MustNewConstMetric(
-			s.bpfProgRunsTotal,
-			prometheus.CounterValue,
-			float64(info.TotalRuns),
-			nodeName,
-			fmt.Sprintf("%d", info.ID),
-			pod,
-			attachment,
-			info.Name,
-			info.Type,
-		)
-
-		ch <- prometheus.MustNewConstMetric(
-			s.bpfProgRuntimeTotal,
-			prometheus.CounterValue,
-			info.TotalRuntime.Seconds(),
-			nodeName,
-			fmt.Sprintf("%d", info.ID),
-			pod,
-			attachment,
-			info.Name,
-			info.Type,
-		)
-	}
+	// for _, stat := range stats {
+	// 	// ch <- prometheus.MustNewConstMetric(
+	// 	// 	s.bpfProgRunsTotal,
+	// 	// 	prometheus.CounterValue,
+	// 	// 	float64(stat.Stats.RunCount),
+	// 	// 	nodeName,
+	// 	// 	fmt.Sprintf("%d", info.ID),
+	// 	// 	pod,
+	// 	// 	attachment,
+	// 	// 	info.Name,
+	// 	// 	info.Type,
+	// 	// )
+	// 	//
+	// 	// ch <- prometheus.MustNewConstMetric(
+	// 	// 	s.bpfProgRuntimeTotal,
+	// 	// 	prometheus.CounterValue,
+	// 	// 	info.TotalRuntime.Seconds(),
+	// 	// 	nodeName,
+	// 	// 	fmt.Sprintf("%d", info.ID),
+	// 	// 	pod,
+	// 	// 	attachment,
+	// 	// 	info.Name,
+	// 	// 	info.Type,
+	// 	// )
+	// }
 }
 
 func getLocalNodeName() string {

@@ -8,13 +8,13 @@ package metrics
 import (
 	"log/slog"
 
-	"github.com/cilium/cilium/pkg/bpf/statsquery/types"
+	"github.com/cilium/cilium/pkg/bpf/stats/types"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type bpfRuntimeCollector struct{}
 
-func newbpfRuntimeCollector(logger *slog.Logger, _ types.ProgStatsGetter) *bpfRuntimeCollector {
+func newbpfRuntimeCollector(logger *slog.Logger, _ types.ProgStatsCollector) *bpfRuntimeCollector {
 	return &bpfRuntimeCollector{}
 }
 

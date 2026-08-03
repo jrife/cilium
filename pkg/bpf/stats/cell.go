@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf/statsquery/types"
+	"github.com/cilium/cilium/pkg/bpf/stats/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -26,6 +26,7 @@ var Cell = cell.Module(
 	cell.Provide(statsCommands),
 	cell.Config(Config{}),
 	cell.Invoke(registerBPFStatsEnable),
+	cell.Provide(newProgStatsCollector),
 )
 
 type Config struct {
@@ -67,10 +68,9 @@ func registerBPFStatsEnable(logger *slog.Logger, lc cell.Lifecycle, cfg Config) 
 }
 
 func statsCommands(
-	progStatsGetter types.ProgStatsGetter,
+	progStatsCollector types.ProgStatsCollector,
 ) hive.ScriptCmdsOut {
 	return hive.NewScriptCmds(map[string]script.Cmd{
-		"bpf/stats/report": reportCommand(progStatsGetter),
-		"bpf/stats/diff":   diffCommand(),
+		"bpf/stats/report": reportCommand(progStatsCollector),
 	})
 }
