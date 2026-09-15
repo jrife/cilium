@@ -68,22 +68,32 @@ build: ## Builds all the components for Cilium by executing make in the respecti
 	$(QUIET)$(MAKE) $(SUBMAKEOPTS) $(SUBDIRS_DATAPATH_GEN)
 	$(QUIET)$(MAKE) $(SUBMAKEOPTS) $(SUBDIRS_GO)
 
-build-container: ## Builds components required for cilium-agent container.
+bpf-objs: ## Builds BPF objs using bpf2go if not already present in the cache and places them where they should go in the tree.
+	if [ -z "$(OBJ_CACHE_ROOT)" ]; then \
+		echo "OBJ_CACHE_ROOT is empty or not set!"; \
+		exit 1; \
+	fi
+	if [ ! -d "$(OBJ_CACHE_ROOT)" ]; then \
+		$(QUIET)$(MAKE) $(SUBMAKEOPTS) BPFGEN_CILIUM_ROOT="$(ROOT_DIR)" BPFGEN_OBJ_CACHE_ROOT="$(OBJ_CACHE_ROOT)" -C bpf generate-bpf2go; \
+	fi
+	cp -a $(OBJ_CACHE_ROOT)/. .
+
+build-container: bpf-objs ## Builds components required for cilium-agent container.
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i all; done
 
-build-container-operator: ## Builds components required for cilium-operator container.
+build-container-operator: bpf-objs ## Builds components required for cilium-operator container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) all
 
-build-container-operator-generic: ## Builds components required for a cilium-operator generic variant container.
+build-container-operator-generic: bpf-objs ## Builds components required for a cilium-operator generic variant container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) cilium-operator-generic
 
-build-container-operator-aws: ## Builds components required for a cilium-operator aws variant container.
+build-container-operator-aws: bpf-objs ## Builds components required for a cilium-operator aws variant container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) cilium-operator-aws
 
-build-container-operator-azure: ## Builds components required for a cilium-operator azure variant container.
+build-container-operator-azure: bpf-objs ## Builds components required for a cilium-operator azure variant container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) cilium-operator-azure
 
-build-container-operator-alibabacloud: ## Builds components required for a cilium-operator alibabacloud variant container.
+build-container-operator-alibabacloud: bpf-objs ## Builds components required for a cilium-operator alibabacloud variant container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_OPERATOR_CONTAINER) cilium-operator-alibabacloud
 
 build-container-hubble-relay:
@@ -92,7 +102,7 @@ build-container-hubble-relay:
 build-container-clustermesh-apiserver: ## Builds components required for the clustermesh-apiserver container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) all
 
-build-container-standalone-dns-proxy: ## Builds components required for standalone dns proxy container.
+build-container-standalone-dns-proxy: bpf-objs ## Builds components required for standalone dns proxy container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_STANDALONE_DNS_PROXY_CONTAINER) all
 
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
@@ -203,7 +213,7 @@ install-container-binary: install-bpf ## Install binaries for all components req
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install-binary; done
 
-install-bash-completion: ## Install bash completion for all components required for cilium-agent container.
+install-bash-completion: bpf-objs ## Install bash completion for all components required for cilium-agent container.
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install-bash-completion; done
 
@@ -520,6 +530,8 @@ fuzz: check-fuzz # Run fuzzer tests briefly for FUZZ_TIME seconds
 	./test/fuzzing/go-fuzz.sh | $(GOTEST_FORMATTER)
 
 precheck: ## Peform build precheck for the source code.
+	contrib/scripts/builder.sh \
+		make $(SUBMAKEOPTS) -C bpf generate-bpf2go
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),false)
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh
@@ -692,6 +704,8 @@ BPF_TEST_FLAGS ?=
 SUDO ?= sudo -E
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
+	contrib/scripts/builder.sh \
+		make $(SUBMAKEOPTS) -C bpf generate-bpf2go
 	contrib/scripts/builder.sh \
 		env MAKEFLAGS="$(filter-out --jobserver-auth=%,$(MAKEFLAGS))" \
 		make $(SUBMAKEOPTS) -C bpf/tests/ all
