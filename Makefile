@@ -68,15 +68,8 @@ build: ## Builds all the components for Cilium by executing make in the respecti
 	$(QUIET)$(MAKE) $(SUBMAKEOPTS) $(SUBDIRS_DATAPATH_GEN)
 	$(QUIET)$(MAKE) $(SUBMAKEOPTS) $(SUBDIRS_GO)
 
-bpf-objs: ## Builds BPF objs using bpf2go if not already present in the cache and places them where they should go in the tree.
-	if [ -z "$(OBJ_CACHE_ROOT)" ]; then \
-		echo "OBJ_CACHE_ROOT is empty or not set!"; \
-		exit 1; \
-	fi
-	if [ ! -d "$(OBJ_CACHE_ROOT)" ]; then \
-		$(QUIET)$(MAKE) $(SUBMAKEOPTS) BPFGEN_CILIUM_ROOT="$(ROOT_DIR)" BPFGEN_OBJ_CACHE_ROOT="$(OBJ_CACHE_ROOT)" -C bpf generate-bpf2go; \
-	fi
-	cp -a $(OBJ_CACHE_ROOT)/. .
+bpf-objs:
+	$(QUIET)$(MAKE) $(SUBMAKEOPTS) BPFGEN_CILIUM_ROOT="$(ROOT_DIR)" -C bpf generate-bpf2go
 
 build-container: bpf-objs ## Builds components required for cilium-agent container.
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i all; done
