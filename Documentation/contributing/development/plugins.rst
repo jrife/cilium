@@ -305,3 +305,35 @@ gRPC API Reference
 
    Datapath Plugins <../../_api/v1/datapathplugins/README>
 
+
+CLI
+===
+
+cilium-dbg plugins hooks list
+
+Table Output:
+
+DEVICE          POD             TARGET                  HOOK POINT      HOOKS
+lxc123          default/mypod   cil_from_container(100) PRE             example:before_cil_from_container(394)
+                                                                        plugin_a:before_cil_from_container(395)
+                                                                        plugin_b:before_cil_from_container(396)
+                                                        POST            example:after_cil_from_container(397)
+                                                                        plugin_a:after_cil_from_container(398)
+                                                                        plugin_b:after_cil_from_container(399)
+
+cilium-dbg plugins hooks order explain
+
+DEVICE          POD             TARGET                  HOOK POINT      PLUGIN   CONSTRAINTS
+lxc123          default/mypod   cil_from_container(100) PRE             example  is first (before plugin_a)
+                                                                                 is first (before plugin_b)
+                                                                        plugin_a is before plugin_b
+                                                                        plugin_b
+                                                        POST            example  is first (before plugin_a)
+                                                                        example  is first (before plugin_b)
+                                                                        plugin_a
+                                                                        plugin_b is after plugin_a
+
+
+* Dump final hooks state and constraints to JSON file(s) on commit()
+* Clean up these directories in the same place where other state directories are cleaned up.
+* NEW: On agent startup, we need to restore state from these JSON files similar to endpoint restore.

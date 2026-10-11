@@ -9,6 +9,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/datapath/plugins/status"
 )
 
 type datapathPluginsConfig struct {
@@ -30,6 +32,8 @@ var Cell = cell.Module(
 	cell.Config(defaultDatapathPluginsConfig),
 	cell.Provide(
 		statedb.RWTable[*api_v2alpha1.CiliumDatapathPlugin].ToTable,
+		status.NewCollectionHookStatuses,
+		status.PluginsStatusCommands,
 		newRegistry,
 	),
 	cell.ProvidePrivate(

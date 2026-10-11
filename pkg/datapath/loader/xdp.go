@@ -104,7 +104,7 @@ func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
 //
 // bpffsBase is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
-func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode xdp.Mode, bpffsBase string) {
+func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode xdp.Mode, bpffsBase string, collLoader *bpfCollectionLoader) {
 	links, err := safenetlink.LinkList()
 	if err != nil {
 		logger.Warn("Failed to list links for XDP unload",
@@ -136,6 +136,12 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode 
 		if !used {
 			if err := DetachXDP(link.Attrs().Name, bpffsBase, symbolFromHostNetdevXDP); err != nil {
 				logger.Warn("Failed to detach obsolete XDP program",
+					logfields.Error, err,
+				)
+			}
+			if err := collLoader.Unload(attachmentContextXDP(link.Attrs().Name)); err != nil {
+				logger.Warn("Failed to purge collection hook status",
+					logfields.Device, link.Attrs().Name,
 					logfields.Error, err,
 				)
 			}
@@ -246,7 +252,7 @@ func loadAssignAttach(ctx context.Context, logger *slog.Logger, reg *registry.Ma
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
-		}, lnc, attachmentContextXDP(iface), bpffsDevicePluginPinsXdpDir(bpf.CiliumPath(), iface))
+		}, lnc, attachmentContextXDP(iface.Attrs().Name), bpffsDevicePluginPinsXdpDir(bpf.CiliumPath(), iface))
 		if err != nil {
 			return err
 		}

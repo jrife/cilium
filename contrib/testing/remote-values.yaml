@@ -1,0 +1,44 @@
+image:
+  override: "harbor.jrife.io/cilium/cilium:latest"
+  pullPolicy: Always
+debug:
+  enabled: false
+pprof:
+  enabled: true
+prometheus:
+  enabled: true
+operator:
+  nodeSelector:
+    kubernetes.io/os: linux
+ipam:
+  mode: kubernetes
+ipv6:
+  enabled: false
+ipv4:
+  enabled: true
+bpf:
+  monitorAggregation: none
+  masquerade: true
+  hostRouting: true
+  datapathMode: netkit
+  events:
+    trace:
+      enabled: false
+# bandwidthManager:
+#   enabled: true
+#   bbr: true
+# MTU: 9000
+kubeProxyReplacement: true
+routingMode: native
+autoDirectNodeRoutes: false
+ipv4NativeRoutingCIDR: 10.244.0.0/16
+livenessProbe:
+  failureThreshold: 9999
+readinessProbe:
+  failureThreshold: 9999
+startupProbe:
+  failureThreshold: 9999
+datapathPlugins:
+  enabled: true
+daemon:
+  enableSourceIPVerification: false

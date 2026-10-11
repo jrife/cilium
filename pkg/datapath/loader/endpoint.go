@@ -167,6 +167,12 @@ func (l *loader) Unload(ep endpoint.Endpoint) {
 			logfields.BPFFSEndpointDir, bpffsEndpointDir(bpf.CiliumPath(), ep),
 		)
 	}
+
+	if err := l.bpfCollectionLoader.Unload(attachmentContextLXC(ep)); err != nil {
+		log.Warn("Failed to purge collection hook status",
+			logfields.Error, err,
+		)
+	}
 }
 
 // EndpointHash hashes the specified endpoint configuration with the current

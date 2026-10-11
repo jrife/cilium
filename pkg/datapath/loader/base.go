@@ -212,8 +212,21 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, reg *registry
 
 		os.RemoveAll(bpffsDeviceNameDir(bpf.CiliumPath(), defaults.VxlanDevice))
 		os.RemoveAll(bpfStateDeviceDir(defaults.VxlanDevice))
+		if err := collLoader.Unload(attachmentContextOverlay(defaults.VxlanDevice)); err != nil {
+			logger.Warn("Failed to purge collection hook status",
+				logfields.Device, defaults.VxlanDevice,
+				logfields.Error, err,
+			)
+		}
 		os.RemoveAll(bpffsDeviceNameDir(bpf.CiliumPath(), defaults.GeneveDevice))
 		os.RemoveAll(bpfStateDeviceDir(defaults.GeneveDevice))
+		if err := collLoader.Unload(attachmentContextOverlay(defaults.GeneveDevice)); err != nil {
+			logger.Warn("Failed to purge collection hook status",
+				logfields.Device, defaults.GeneveDevice,
+				logfields.Error, err,
+			)
+		}
+
 		return nil
 	}
 
@@ -236,6 +249,12 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, reg *regist
 
 		os.RemoveAll(bpffsDeviceNameDir(bpf.CiliumPath(), wgTypes.IfaceName))
 		os.RemoveAll(bpfStateDeviceDir(wgTypes.IfaceName))
+		if err := collLoader.Unload(attachmentContextWireguard(wgTypes.IfaceName)); err != nil {
+			logger.Warn("Failed to purge collection hook status",
+				logfields.Device, wgTypes.IfaceName,
+				logfields.Error, err,
+			)
+		}
 
 		return
 	}
@@ -254,7 +273,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, reg *regist
 func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	collLoader *bpfCollectionLoader, lnc *config.Config, devices []string) error {
 	xdpConfig := lnc.XDPConfig
-	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpf.CiliumPath())
+	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpf.CiliumPath(), collLoader)
 	if xdpConfig.Disabled() {
 		return nil
 	}

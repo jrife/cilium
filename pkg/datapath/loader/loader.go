@@ -18,6 +18,7 @@ import (
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/types"
+	"github.com/cilium/cilium/pkg/datapath/plugins/status"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -63,19 +64,20 @@ type loader struct {
 type Params struct {
 	cell.In
 
-	MapRegistry        *registry.MapRegistry
-	JobGroup           job.Group
-	Logger             *slog.Logger
-	Sysctl             sysctl.Sysctl
-	Prefilter          prefilter.PreFilter
-	CompilationLock    types.CompilationLock
-	ConfigWriter       config.Writer
-	NodeConfigNotifier *manager.NodeConfigNotifier
-	RouteManager       *routeReconciler.DesiredRouteManager
-	DB                 *statedb.DB
-	Devices            statedb.Table[*tables.Device]
-	EPRestorer         promise.Promise[endpointstate.Restorer]
-	BIGTCPConfig       bigtcp.Config
+	MapRegistry            *registry.MapRegistry
+	JobGroup               job.Group
+	Logger                 *slog.Logger
+	Sysctl                 sysctl.Sysctl
+	Prefilter              prefilter.PreFilter
+	CompilationLock        types.CompilationLock
+	ConfigWriter           config.Writer
+	NodeConfigNotifier     *manager.NodeConfigNotifier
+	RouteManager           *routeReconciler.DesiredRouteManager
+	DB                     *statedb.DB
+	Devices                statedb.Table[*tables.Device]
+	EPRestorer             promise.Promise[endpointstate.Restorer]
+	BIGTCPConfig           bigtcp.Config
+	CollectionHookStatuses *status.CollectionHookStatuses
 
 	// Force map initialisation before loader.
 	bpf.MapGroup
@@ -87,6 +89,7 @@ func newLoader(p Params) *loader {
 	collLoader := newBPFCollectionLoader(
 		option.Config.EnableDatapathPlugins,
 		bpffsPluginsOperationsDir(bpf.CiliumPath()),
+		p.CollectionHookStatuses,
 	)
 	collLoader.runGC(p.Logger, p.JobGroup)
 	return &loader{
