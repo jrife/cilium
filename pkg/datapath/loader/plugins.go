@@ -1001,6 +1001,128 @@ func clampAndReturn(ps *ebpf.ProgramSpec, label string) asm.Instructions {
 	)
 }
 
+// We need to do the same thing that `_send_drop_notify` does here.
+// Basically, it needs to prepare these inputs for CILIUM_CALL_DROP_NOTIFY
+// src - it's hard to know this, so 0 for now? security identity
+// dst - same as src
+// reason - ext_err made positive. we can allow freplace programs to
+//
+//	return an exit code?
+//
+// dst_id - actual endpoint ID. It's hard to know this for sure. It's
+//
+//	set contextually. In cil_to_container it's known so they
+//	pass in LXC_ID directly. In policy programs it's also known.
+//
+// exitcode - usually just CTX_ACT_DROP with a few exceptions
+// file - a number that maps to a Cilium source file. maybe overload this for plugin ID?
+// line - source line in file. maybe overload this for plugin ID?
+//
+// Complication: XDP and SKB programs define ctx_load_meta differently.
+// ctx_load_meta does different things depending on the program type.
+// We'd need to know that somehow unless we create a normalized wrapper
+// that we can call into from plugins.
+//
+// Problem: If our drop reason is a missed tail call due to limits then
+//
+//	we won't reach CILIUM_CALL_DROP_NOTIFY_PLUGIN.
+//
+// Our design should use a scratch map.
+//
+//   - Add a new program to each collection that is an adapter for
+//     _tail_drop_notify:
+//   - Read inputs from a scratch space and invoke _send_drop_notify.
+//   - Emit ASM here:
+//     1. Update metrics map.
+//     Requires special-casing for XDP vs SKB length reading.
+//     skb: read ctx offset 0
+//     xdp: subtract ctx offset 0 from ctx offset 4
+//     2. Write inputs to plugin drop scratch and tail call if
+//     enable_drop_notify is enabled.
+//
+// Alternative: we have a "dummy" program that we inject as a
+//
+//	subprogram inside our dispatcher.
+func sendDropNotify(coll *ebpf.CollectionSpec, returnLabel string) (asm.Instructions, error) {
+	sendDropNotify := coll.Programs["plugin_send_drop_notify_event"]
+	btfMeta := btf.FuncMetadata(&sendDropNotify.Instructions[0])
+	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
+	// if !hasFuncProto {
+	// 	return nil, fmt.Errorf("unable to extract function BTF info for helper program")
+	// }
+	var pluginDropArgsType btf.Struct
+	coll.Types.TypeByName("plugin_drop_args", &pluginDropArgsType)
+	pluginDropArgsType.Members[0].Offset.Bytes()
+
+	offsets, err := structMemberOffsets(&pluginDropArgsType,
+		"src",
+		"dst",
+		"dst_id",
+		"reason",
+		"exitcode",
+		"direction",
+		"line",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("calculating struct member offsets: %w", err)
+	}
+
+	asm.Mov.Reg(asm.R1, asm.R6)
+	asm.Mov.Reg(asm.R2, asm.R10)
+	asm.Sub.Imm(asm.R2, int32(pluginDropArgsType.Size))
+	asm.StoreImm(asm.R2, offsets["src"], 0, asm.Word)
+	asm.StoreImm(asm.R2, offsets["dst"], 0, asm.Word)
+	asm.StoreImm(asm.R2, offsets["dst_id"], 0, asm.Word)
+	asm.StoreImm(asm.R2, offsets["reason"], 0, asm.Word)
+	asm.StoreImm(asm.R2, offsets["exitcode"], 0, asm.Word)
+	asm.StoreImm(asm.R2, offsets["direction"], 0, asm.Word)
+	asm.StoreImm(asm.R2, offsets["line"], 0, asm.Half)
+	asm.StoreImm(asm.R2, offsets["file"], 0, asm.Byte)
+	asm.Call.Label("plugin_send_drop_notify_event")
+	// Fallthrough
+	asm.Ja.Label(returnLabel)
+
+	return nil, nil
+}
+
+func structMemberOffsets(s *btf.Struct, names ...string) (result map[string]int16, err error) {
+	result = make(map[string]int16)
+
+	for _, n := range names {
+		for _, m := range s.Members {
+			if m.Name == n {
+				result[n] = int16(m.Offset.Bytes())
+			}
+		}
+
+		if _, ok := result[n]; !ok {
+			err = errors.Join(err, fmt.Errorf("could not find struct member %s", n))
+		}
+	}
+
+	return result, err
+}
+
+func pluginSendDropNotify(coll *ebpf.CollectionSpec) (asm.Instructions, error) {
+	sendDropNotify := coll.Programs["plugin_send_drop_notify_event"]
+	btfMeta := btf.FuncMetadata(&sendDropNotify.Instructions[0])
+	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
+	if !hasFuncProto {
+		return nil, fmt.Errorf("unable to extract function BTF info for helper program")
+	}
+
+	prog[0] = btf.WithFuncMetadata(
+		prog[0].WithSymbol(name).WithSource(asm.Comment(name)),
+		&btf.Func{
+			Name: name,
+			Type: funcProto,
+			// BTF_FUNC_GLOBAL ensures programs are independently verified.
+			Linkage: btf.GlobalFunc,
+		})
+
+	sendDropNotify.Instructions
+}
+
 type node struct {
 	exists        bool
 	outgoing      map[string]struct{}

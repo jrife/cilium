@@ -41,7 +41,7 @@ struct drop_notify {
 				* when cls_flags_t grows (either borrow bits from pad2 or
 				* move to flags_lower/flags_upper).
 				*/
-	__u8		pad2[3];
+	__u8		pad2[3]; /* Steal this? */
 	__u64		ip_trace_id;
 
 	DROP_EXTENSION
@@ -163,6 +163,26 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	/* ignore the returned error, use caller-provided exitcode */
 
 	return exitcode;
+}
+
+struct plugin_drop_args {
+	__u32 src;
+	__u32 dst;
+	__u32 dst_id;
+	__u32 reason;
+	__u32 exitcode;
+	enum metric_dir direction;
+	__u16 line;
+	__u8 file;
+};
+
+__section_plugin_helper
+int plugin_send_drop_notify_event(struct __ctx_buff *ctx,
+				  struct plugin_drop_args *args)
+{
+	return _send_drop_notify_event(args->file, args->line, ctx, args->src,
+				       args->dst, args->dst_id, args->reason,
+				       args->exitcode, args->direction);
 }
 
 /*
